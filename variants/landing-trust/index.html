@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Цементум - Бетон с гарантией качества | Кемерово</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container header-inner">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <span>Цементум</span>
+            </div>
+            <nav class="nav-desktop">
+                <a href="#advantages">Преимущества</a>
+                <a href="#prices">Цены</a>
+                <a href="#calculator">Калькулятор</a>
+                <a href="#trust">О компании</a>
+            </nav>
+            <div class="header-contacts">
+                <a href="tel:83842446633" class="header-phone">8 (3842) 44-66-33</a>
+                <a href="#cta" class="btn btn-sm">Заказать бетон</a>
+            </div>
+            <button class="mobile-menu-btn" aria-label="Меню">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        <nav class="nav-mobile" id="navMobile">
+            <a href="#advantages">Преимущества</a>
+            <a href="#prices">Цены</a>
+            <a href="#calculator">Калькулятор</a>
+            <a href="#trust">О компании</a>
+            <a href="#cta">Заказать бетон</a>
+        </nav>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container hero-inner">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                    Работаем с 2013 года
+                </div>
+                <h1>Бетон с гарантией качества. <span>1500+ объектов</span> с 2013 года</h1>
+                <p class="hero-sub">Производим бетон по ГОСТ, проверяем в собственной лаборатории, доставляем точно в срок. Паспорт качества на каждую партию.</p>
+                <div class="hero-stats">
+                    <div class="hero-stat">
+                        <strong>1500+</strong>
+                        <span>объектов</span>
+                    </div>
+                    <div class="hero-stat">
+                        <strong>12 лет</strong>
+                        <span>на рынке</span>
+                    </div>
+                    <div class="hero-stat">
+                        <strong>30</strong>
+                        <span>миксеров</span>
+                    </div>
+                    <div class="hero-stat">
+                        <strong>24/7</strong>
+                        <span>доставка</span>
+                    </div>
+                </div>
+                <div class="hero-actions">
+                    <a href="#calculator" class="btn btn-primary btn-lg">Рассчитать объём и стоимость</a>
+                    <a href="#cta" class="btn btn-outline btn-lg">Заказать бетон</a>
+                </div>
+                <div class="hero-trust">
+                    <div class="trust-icon">
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
+                    </div>
+                    <span>Гарантия качества подтверждена сертификатом</span>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="hero-card">
+                    <div class="card-header">
+                        <div class="card-icon-green">
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                        </div>
+                        <span>Паспорт качества</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-row"><span>Марка</span><strong>М350</strong></div>
+                        <div class="card-row"><span>Класс</span><strong>B25</strong></div>
+                        <div class="card-row"><span>Прочность</span><strong>327 кг/см²</strong></div>
+                        <div class="card-row"><span>Морозостойкость</span><strong>F200</strong></div>
+                        <div class="card-row"><span>Водонепроницаемость</span><strong>W6</strong></div>
+                    </div>
+                    <div class="card-footer">
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                        Проверено лабораторией
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pain Block -->
+    <section class="pain">
+        <div class="container">
+            <div class="section-badge warning">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                Важно знать
+            </div>
+            <h2>Каждый 3-й объект — с проблемами бетона</h2>
+            <p class="section-sub">Низкое качество бетона приводит к трещинам, разрушению и дорогостоящему ремонту</p>
+            <div class="pain-grid">
+                <div class="pain-card">
+                    <div class="pain-icon red">
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-5-3.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zm-5.47 7.47a.75.75 0 011.06 0L10 15.44l1.41-1.41a.75.75 0 111.06 1.06l-2 2a.75.75 0 01-1.06 0l-2-2a.75.75 0 010-1.06z" clip-rule="evenodd"/></svg>
+                    </div>
+                    <h3>Трещины в фундаменте</h3>
+                    <p>Неправильная марка бетона или нарушение технологии приводит к разрушению основания</p>
+                </div>
+                <div class="pain-card">
+                    <div class="pain-icon red">
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-5-3.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zm-5.47 7.47a.75.75 0 011.06 0L10 15.44l1.41-1.41a.75.75 0 111.06 1.06l-2 2a.75.75 0 01-1.06 0l-2-2a.75.75 0 010-1.06z" clip-rule="evenodd"/></svg>
+                    </div>
+                    <h3>Недовоз и переплата</h3>
+                    <p>Поставщики экономят на объёме — вы платите за 5 м³, а получаете 4 м³</p>
+                </div>
+                <div class="pain-card">
+                    <div class="pain-icon red">
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-5-3.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zm-5.47 7.47a.75.75 0 011.06 0L10 15.44l1.41-1.41a.75.75 0 111.06 1.06l-2 2a.75.75 0 01-1.06 0l-2-2a.75.75 0 010-1.06z" clip-rule="evenodd"/></svg>
+                    </div>
+                    <h3>Срыв сроков</h3>
+                    <p>Миксер не приехал вовремя — бригада простаивает, сроки горят</p>
+                </div>
+            </div>
+            <div class="pain-solution">
+                <div class="solution-icon">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                </div>
+                <div class="solution-text">
+                    <strong>Цементум решает все три проблемы:</strong> паспорт качества на каждую партию, точный объём в каждом миксере, доставка по расписанию 24/7
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solution -->
+    <section class="solution-section">
+        <div class="container">
+            <div class="section-badge success">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                Наше решение
+            </div>
+            <h2>Полный цикл: от производства до приёмки</h2>
+            <p class="section-sub">Контролируем каждый этап — от сырья до выгрузки на объекте</p>
+            <div class="solution-steps">
+                <div class="step-line"></div>
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <h3>Производство</h3>
+                    <p>Собственный завод с автоматизированной линией. Точная дозировка компонентов по ГОСТ 7473-2010</p>
+                    <div class="step-guarantee">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3.669 11.538a.498.498 0 01-.686.165c-1.914-1.027-3.47-.636-4.684.204a.498.498 0 01-.686-.165.498.498 0 01.165-.686c1.556-1.077 3.533-1.536 5.718-.203a.498.498 0 01.165.686z"/></svg>
+                        Автоматическое дозирование
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num">2</div>
+                    <h3>Лаборатория</h3>
+                    <p>Аккредитованная лаборатория проверяет каждую партию: прочность, подвижность, морозостойкость</p>
+                    <div class="step-guarantee">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3.669 11.538a.498.498 0 01-.686.165c-1.914-1.027-3.47-.636-4.684.204a.498.498 0 01-.686-.165.498.498 0 01.165-.686c1.556-1.077 3.533-1.536 5.718-.203a.498.498 0 01.165.686z"/></svg>
+                        Протокол испытаний
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num">3</div>
+                    <h3>Доставка</h3>
+                    <p>30 собственных миксеров. GPS-мониторинг, диспетчер на линии, доставка точно в срок</p>
+                    <div class="step-guarantee">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3.669 11.538a.498.498 0 01-.686.165c-1.914-1.027-3.47-.636-4.684.204a.498.498 0 01-.686-.165.498.498 0 01.165-.686c1.556-1.077 3.533-1.536 5.718-.203a.498.498 0 01.165.686z"/></svg>
+                        GPS-отслеживание
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num">4</div>
+                    <h3>Приёмка</h3>
+                    <p>Паспорт качества при выгрузке. Контрольные образцы. Гарантия соответствия заявленной марке</p>
+                    <div class="step-guarantee">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3.669 11.538a.498.498 0 01-.686.165c-1.914-1.027-3.47-.636-4.684.204a.498.498 0 01-.686-.165.498.498 0 01.165-.686c1.556-1.077 3.533-1.536 5.718-.203a.498.498 0 01.165.686z"/></svg>
+                        Паспорт качества
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Advantages -->
+    <section class="advantages" id="advantages">
+        <div class="container">
+            <div class="section-badge">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                Гарантии
+            </div>
+            <h2>Почему 1500+ объектов выбрали Цементум</h2>
+            <p class="section-sub">Четыре гарантии, которые защищают ваш объект</p>
+            <div class="adv-grid">
+                <div class="adv-card">
+                    <div class="adv-icon shield">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="M9 12l2 2 4-4"/>
+                        </svg>
+                    </div>
+                    <h3>Паспорт качества</h3>
+                    <p>На каждую партию — паспорт с результатами испытаний. Вы видите точные показатели прочности, подвижности и морозостойкости</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon lab">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 3H5a2 2 0 00-2 2v4m6-6h8a2 2 0 012 2v4M9 3v12m0 0h6m-6 0H5a2 2 0 00-2 2v2m14-12v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8m4-4l5-5 5 5"/>
+                        </svg>
+                    </div>
+                    <h3>Своя лаборатория</h3>
+                    <p>Аккредитованная лаборатория контролирует каждую партию. Протокол испытаний прилагается к документам</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon insure">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <circle cx="12" cy="11" r="3"/>
+                        </svg>
+                    </div>
+                    <h3>Страхование поставок</h3>
+                    <p>Каждая поставка застрахована. Если бетон не соответствует заявленной марке — компенсация 100%</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon cert">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M8 12l3 3 5-5"/>
+                            <circle cx="16" cy="16" r="2"/>
+                        </svg>
+                    </div>
+                    <h3>Сертификаты ГОСТ</h3>
+                    <p>Все марки бетона соответствуют ГОСТ 7473-2010. Сертификаты доступны для проверки</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Prices -->
+    <section class="prices" id="prices">
+        <div class="container">
+            <div class="section-badge">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                Цены
+            </div>
+            <h2>Качественный бетон — от 6 200 ₽/м³</h2>
+            <p class="section-sub">Честные цены без скрытых наценок. Объём — точный, марка — проверенная</p>
+            <div class="price-table-wrapper">
+                <table class="price-table">
+                    <thead>
+                        <tr>
+                            <th>Марка</th>
+                            <th>Класс</th>
+                            <th>Прочность</th>
+                            <th>Цена за м³</th>
+                            <th>Применение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>М100</strong></td>
+                            <td>B7.5</td>
+                            <td>98 кг/см²</td>
+                            <td class="price-cell">6 200 ₽</td>
+                            <td>Подготовка, подушки</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М150</strong></td>
+                            <td>B12.5</td>
+                            <td>164 кг/см²</td>
+                            <td class="price-cell">6 500 ₽</td>
+                            <td>Стяжки, полы</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М200</strong></td>
+                            <td>B15</td>
+                            <td>196 кг/см²</td>
+                            <td class="price-cell">6 800 ₽</td>
+                            <td>Фундаменты, дорожки</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М250</strong></td>
+                            <td>B20</td>
+                            <td>262 кг/см²</td>
+                            <td class="price-cell">7 200 ₽</td>
+                            <td>Фундаменты, стены</td>
+                        </tr>
+                        <tr class="popular">
+                            <td><strong>М300</strong></td>
+                            <td>B22.5</td>
+                            <td>294 кг/см²</td>
+                            <td class="price-cell">7 500 ₽</td>
+                            <td>Монолит, перекрытия</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М350</strong></td>
+                            <td>B25</td>
+                            <td>327 кг/см²</td>
+                            <td class="price-cell">7 900 ₽</td>
+                            <td>Колонны, балки</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М400</strong></td>
+                            <td>B30</td>
+                            <td>393 кг/см²</td>
+                            <td class="price-cell">8 400 ₽</td>
+                            <td>Мосты, бассейны</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="price-note">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A.75.75 0 009.75 13H9a.75.75 0 000 1.5h2a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A.75.75 0 009 9.5H9a.75.75 0 000-1.5H9z" clip-rule="evenodd"/></svg>
+                Цены указаны с учётом НДС. Доставка рассчитывается отдельно в зависимости от удалённости объекта.
+            </div>
+        </div>
+    </section>
+
+    <!-- Calculator -->
+    <section class="calculator" id="calculator">
+        <div class="container">
+            <div class="section-badge calc-badge">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a2 2 0 00-2 2v8a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2H3zm1 2h12v8H4V6zm2 1a1 1 0 011-1h2a1 1 0 110 2H7a1 1 0 01-1-1zm0 3a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm0 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+                Калькулятор
+            </div>
+            <h2>Рассчитайте объём и стоимость бетона</h2>
+            <p class="section-sub">Выберите тип конструкции, укажите размеры — получите точный расчёт</p>
+            <div class="calc-wrapper">
+                <div class="calc-tabs">
+                    <button class="calc-tab active" data-tab="slab">
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4V5h12v10z"/></svg>
+                        Плита
+                    </button>
+                    <button class="calc-tab" data-tab="strip">
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h14v2H3V3zm0 4h14v2H3V7zm0 4h14v2H3v-2zm0 4h14v2H3v-2z"/></svg>
+                        Лента
+                    </button>
+                    <button class="calc-tab" data-tab="cylinder">
+                        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 00-6 6v4a6 6 0 0012 0V8a6 6 0 00-6-6zm4 10a4 4 0 11-8 0V8a4 4 0 118 0v4z"/></svg>
+                        Цилиндр
+                    </button>
+                </div>
+                <div class="calc-forms">
+                    <!-- Slab -->
+                    <div class="calc-form active" id="calc-slab">
+                        <div class="calc-inputs">
+                            <div class="input-group">
+                                <label>Длина (м)</label>
+                                <input type="number" id="slab-l" placeholder="10" step="0.1" min="0">
+                            </div>
+                            <div class="input-group">
+                                <label>Ширина (м)</label>
+                                <input type="number" id="slab-w" placeholder="8" step="0.1" min="0">
+                            </div>
+                            <div class="input-group">
+                                <label>Высота (м)</label>
+                                <input type="number" id="slab-h" placeholder="0.3" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary calc-btn" data-type="slab">Рассчитать</button>
+                    </div>
+                    <!-- Strip -->
+                    <div class="calc-form" id="calc-strip">
+                        <div class="calc-inputs">
+                            <div class="input-group">
+                                <label>Периметр (м)</label>
+                                <input type="number" id="strip-p" placeholder="40" step="0.1" min="0">
+                            </div>
+                            <div class="input-group">
+                                <label>Ширина (м)</label>
+                                <input type="number" id="strip-w" placeholder="0.4" step="0.01" min="0">
+                            </div>
+                            <div class="input-group">
+                                <label>Высота (м)</label>
+                                <input type="number" id="strip-h" placeholder="0.6" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary calc-btn" data-type="strip">Рассчитать</button>
+                    </div>
+                    <!-- Cylinder -->
+                    <div class="calc-form" id="calc-cylinder">
+                        <div class="calc-inputs">
+                            <div class="input-group">
+                                <label>Радиус (м)</label>
+                                <input type="number" id="cyl-r" placeholder="0.5" step="0.01" min="0">
+                            </div>
+                            <div class="input-group">
+                                <label>Высота (м)</label>
+                                <input type="number" id="cyl-h" placeholder="3" step="0.1" min="0">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary calc-btn" data-type="cylinder">Рассчитать</button>
+                    </div>
+                </div>
+                <div class="calc-result" id="calc-result" style="display:none;">
+                    <div class="result-block">
+                        <div class="result-item">
+                            <span>Объём:</span>
+                            <strong id="result-volume">0 м³</strong>
+                        </div>
+                        <div class="result-item">
+                            <span>Стоимость:</span>
+                            <strong id="result-price">0 ₽</strong>
+                        </div>
+                    </div>
+                    <a href="#cta" class="btn btn-success btn-lg">Получить расчёт с гарантией</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Process -->
+    <section class="process">
+        <div class="container">
+            <div class="section-badge">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                Как мы работаем
+            </div>
+            <h2>4 шага от заявки до бетона на объекте</h2>
+            <p class="section-sub">Каждый шаг — с гарантией и документальным подтверждением</p>
+            <div class="process-grid">
+                <div class="process-card">
+                    <div class="process-num">01</div>
+                    <h3>Заявка</h3>
+                    <p>Оставьте заявку на сайте или позвоните. Менеджер уточнит марку, объём и сроки доставки.</p>
+                    <div class="process-guarantee">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M16 8A8 8 0 110 8a8 8 0 0116 0zm-3.97-3.03a.75.75 0 00-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 00-1.06 1.06L6.97 11.03a.75.75 0 001.079-.02l3.992-4.99a.75.75 0 00-.01-1.05z" clip-rule="evenodd"/></svg>
+                        Перезвоним за 5 минут
+                    </div>
+                </div>
+                <div class="process-card">
+                    <div class="process-num">02</div>
+                    <h3>Расчёт</h3>
+                    <p>Инженер рассчитывает точный объём, подбирает марку, оформляет договор с фиксированной ценой.</p>
+                    <div class="process-guarantee">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M16 8A8 8 0 110 8a8 8 0 0116 0zm-3.97-3.03a.75.75 0 00-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 00-1.06 1.06L6.97 11.03a.75.75 0 001.079-.02l3.992-4.99a.75.75 0 00-.01-1.05z" clip-rule="evenodd"/></svg>
+                        Цена зафиксирована в договоре
+                    </div>
+                </div>
+                <div class="process-card">
+                    <div class="process-num">03</div>
+                    <h3>Производство</h3>
+                    <p>Бетон производится на заводе, проходит лабораторный контроль. Каждая партия — с паспортом.</p>
+                    <div class="process-guarantee">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M16 8A8 8 0 110 8a8 8 0 0116 0zm-3.97-3.03a.75.75 0 00-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 00-1.06 1.06L6.97 11.03a.75.75 0 001.079-.02l3.992-4.99a.75.75 0 00-.01-1.05z" clip-rule="evenodd"/></svg>
+                        Протокол испытаний
+                    </div>
+                </div>
+                <div class="process-card">
+                    <div class="process-num">04</div>
+                    <h3>Доставка и приёмка</h3>
+                    <p>Миксер приезжает точно в срок. Выгружаете, проверяете паспорт качества, подписываете акт.</p>
+                    <div class="process-guarantee">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M16 8A8 8 0 110 8a8 8 0 0116 0zm-3.97-3.03a.75.75 0 00-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 00-1.06 1.06L6.97 11.03a.75.75 0 001.079-.02l3.992-4.99a.75.75 0 00-.01-1.05z" clip-rule="evenodd"/></svg>
+                        Гарантия объёма и марки
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust / About -->
+    <section class="trust" id="trust">
+        <div class="container">
+            <div class="section-badge">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                О компании
+            </div>
+            <h2>Цементум — надёжный поставщик с 2013 года</h2>
+            <p class="section-sub">Цифры, которые говорят сами за себя</p>
+            <div class="trust-grid">
+                <div class="trust-card">
+                    <div class="trust-num">2013</div>
+                    <div class="trust-label">Год основания</div>
+                    <p>Более 12 лет стабильной работы на рынке бетона Кемерово</p>
+                </div>
+                <div class="trust-card highlight">
+                    <div class="trust-num">1500+</div>
+                    <div class="trust-label">Объектов построено</div>
+                    <p>Частные дома, ЖК, коммерческие и промышленные объекты</p>
+                </div>
+                <div class="trust-card">
+                    <div class="trust-num">120+</div>
+                    <div class="trust-label">Сотрудников</div>
+                    <p>Инженеры, лаборанты, водители, диспетчеры — профессионалы</p>
+                </div>
+                <div class="trust-card">
+                    <div class="trust-num">30</div>
+                    <div class="trust-label">Миксеров</div>
+                    <p>Собственный автопарк для бесперебойной доставки 24/7</p>
+                </div>
+            </div>
+            <div class="trust-badges">
+                <div class="badge-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span>Сертификат ISO 9001</span>
+                </div>
+                <div class="badge-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12l3 3 5-5"/></svg>
+                    <span>ГОСТ 7473-2010</span>
+                </div>
+                <div class="badge-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                    <span>Аккредитованная лаборатория</span>
+                </div>
+                <div class="badge-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <span>Работаем 24/7</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Urgency -->
+    <section class="urgency">
+        <div class="container">
+            <div class="urgency-inner">
+                <div class="urgency-icon">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm8.242-10.242a.75.75 0 010 1.06l-6.75 6.75a.75.75 0 01-1.06 0l-3.5-3.5a.75.75 0 011.06-1.06l2.97 2.97 6.22-6.22a.75.75 0 011.06 0z" clip-rule="evenodd"/></svg>
+                </div>
+                <h2>Свободных миксеров осталось мало</h2>
+                <p>Сегодня записано <strong>27 из 30</strong> миксеров. Чтобы гарантировать доставку в нужный срок — запишитесь сейчас.</p>
+                <div class="urgency-bar">
+                    <div class="urgency-fill" style="width: 90%"></div>
+                    <span>3 свободно</span>
+                </div>
+                <a href="#cta" class="btn btn-warning btn-lg">Записаться на доставку</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="cta" id="cta">
+        <div class="container">
+            <div class="cta-inner">
+                <div class="cta-left">
+                    <h2>Закажите бетон с гарантией качества</h2>
+                    <p>Оставьте заявку — перезвоним за 5 минут. Менеджер уточнит марку, объём и сроки. Расчёт — бесплатно.</p>
+                    <div class="cta-benefits">
+                        <div class="cta-benefit">
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                            <span>Паспорт качества на каждую партию</span>
+                        </div>
+                        <div class="cta-benefit">
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                            <span>Доставка 24/7 по Кемерово и области</span>
+                        </div>
+                        <div class="cta-benefit">
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+                            <span>Фиксированная цена в договоре</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="cta-right">
+                    <form class="cta-form" id="ctaForm">
+                        <h3>Заявка на бетон</h3>
+                        <div class="form-group">
+                            <input type="text" name="name" placeholder="Ваше имя" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="tel" name="phone" placeholder="Телефон" required>
+                        </div>
+                        <div class="form-group">
+                            <select name="mark">
+                                <option value="">Выберите марку бетона</option>
+                                <option value="M100">М100 — 6 200 ₽/м³</option>
+                                <option value="M150">М150 — 6 500 ₽/м³</option>
+                                <option value="M200">М200 — 6 800 ₽/м³</option>
+                                <option value="M250">М250 — 7 200 ₽/м³</option>
+                                <option value="M300">М300 — 7 500 ₽/м³</option>
+                                <option value="M350">М350 — 7 900 ₽/м³</option>
+                                <option value="M400">М400 — 8 400 ₽/м³</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <input type="text" name="volume" placeholder="Объём (м³)">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg btn-block">Отправить заявку</button>
+                        <div class="form-note">Перезвоним за 5 минут в рабочее время</div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container footer-inner">
+            <div class="footer-col">
+                <div class="footer-logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    <span>Цементум</span>
+                </div>
+                <p>Производство и доставка бетона<br>по Кемерово и Кемеровской области</p>
+            </div>
+            <div class="footer-col">
+                <h4>Контакты</h4>
+                <a href="tel:83842446633">8 (3842) 44-66-33</a>
+                <a href="tel:89131200300">8-913-1-200-300</a>
+                <p>ул. Дружбы, 43/1, Кемерово</p>
+            </div>
+            <div class="footer-col">
+                <h4>Режим работы</h4>
+                <p>Приём заявок: 24/7</p>
+                <p>Доставка: круглосуточно</p>
+                <p>Офис: Пн-Пт 8:00-18:00</p>
+            </div>
+            <div class="footer-col">
+                <h4>Информация</h4>
+                <p>ООО "Цементум"</p>
+                <p>Основана в 2013 году</p>
+                <p>ИНН / ОГРН по запросу</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="container">
+                <p>&copy; 2026 Цементум. Все права защищены. Бетон с гарантией качества.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

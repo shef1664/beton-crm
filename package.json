@@ -1,0 +1,18 @@
+{
+  "name": "аномальный-лендинг",
+  "version": "1.0.0",
+  "description": "5 лендингов для продажи бетона с доставкой по Кемерово",
+  "main": "index.js",
+  "scripts": {
+    "screenshot:all": "node compare-screenshots.js",
+    "open:kdm": "start variants/landing-kdm/index.html",
+    "open:vedro": "start variants/landing-vedro/index.html",
+    "open:speed": "start variants/landing-speed/index.html",
+    "open:trust": "start variants/landing-trust/index.html",
+    "open:calc": "start variants/landing-calc/index.html",
+    "open:all": "start variants/landing-kdm/index.html && start variants/landing-vedro/index.html && start variants/landing-speed/index.html && start variants/landing-trust/index.html && start variants/landing-calc/index.html"
+  },
+  "keywords": ["бетон", "лендинг", "кемерово"],
+  "author": "",
+  "license": "ISC"
+}

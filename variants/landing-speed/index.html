@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Гранитон - Доставка бетона за 1 час | Кемерово</title>
+    <meta name="description" content="Доставка бетона в Кемерово за 1 час. Собственный автопарк 30 миксеров. Более 600 объектов. Звоните: 8 (3842) 44-66-33">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <div class="logo">ГРАНИТОН</div>
+            <div class="nav-phone">
+                <a href="tel:83842446633">8 (3842) 44-66-33</a>
+            </div>
+            <button class="nav-cta" onclick="scrollToSection('cta-final')">Заказать</button>
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <a href="#pain" onclick="closeMobileMenu()">Почему мы</a>
+            <a href="#advantages" onclick="closeMobileMenu()">Преимущества</a>
+            <a href="#prices" onclick="closeMobileMenu()">Цены</a>
+            <a href="#calculator" onclick="closeMobileMenu()">Калькулятор</a>
+            <a href="#process" onclick="closeMobileMenu()">Процесс</a>
+            <a href="#trust" onclick="closeMobileMenu()">О компании</a>
+            <a href="tel:83842446633" class="mobile-phone">8 (3842) 44-66-33</a>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero" id="hero">
+        <div class="hero-bg-animation">
+            <div class="pulse-ring"></div>
+            <div class="pulse-ring delay-1"></div>
+            <div class="pulse-ring delay-2"></div>
+        </div>
+        <div class="container hero-content">
+            <div class="hero-badge">
+                <span class="pulse-dot"></span> Работаем 24/7
+            </div>
+            <h1 class="hero-title">
+                Доставка бетона<br>
+                <span class="accent">за 1 час.</span><br>
+                Или <span class="accent-underline">бесплатно.</span>
+            </h1>
+            <p class="hero-subtitle">Пока конкуренты везут 5 часов — мы уже выгружаем у вас на объекте.</p>
+
+            <div class="hero-timer">
+                <div class="timer-label">Следующий миксер готов к выезду через:</div>
+                <div class="timer-display" id="hero-timer">
+                    <div class="timer-block">
+                        <span class="timer-value" id="timer-hours">00</span>
+                        <span class="timer-unit">час</span>
+                    </div>
+                    <div class="timer-sep">:</div>
+                    <div class="timer-block">
+                        <span class="timer-value" id="timer-minutes">45</span>
+                        <span class="timer-unit">мин</span>
+                    </div>
+                    <div class="timer-sep">:</div>
+                    <div class="timer-block">
+                        <span class="timer-value" id="timer-seconds">00</span>
+                        <span class="timer-unit">сек</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-urgency">
+                <span class="urgency-icon">&#9889;</span>
+                <span id="free-mixers-hero">3</span> свободных миксера на сегодня
+            </div>
+
+            <div class="hero-actions">
+                <a href="tel:83842446633" class="btn btn-primary btn-pulse">
+                    <span class="btn-icon">&#128222;</span> Позвонить сейчас
+                </a>
+                <button class="btn btn-secondary" onclick="scrollToSection('calculator')">
+                    Рассчитать объём
+                </button>
+            </div>
+
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <span class="stat-value">30+</span>
+                    <span class="stat-label">Миксеров</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="stat-value">600+</span>
+                    <span class="stat-label">Объектов</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="stat-value">12</span>
+                    <span class="stat-label">Лет на рынке</span>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-indicator" onclick="scrollToSection('pain')">
+            <div class="scroll-arrow"></div>
+        </div>
+    </section>
+
+    <!-- PAIN -->
+    <section class="pain" id="pain">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="title-icon">&#128533;</span>
+                Знакомо?
+            </h2>
+            <p class="section-subtitle">Пока другие везут 5 часов, мы уже выгружаем</p>
+
+            <div class="pain-grid">
+                <div class="pain-card">
+                    <div class="pain-icon pain-icon-red">&#128338;</div>
+                    <h3>Ждёте бетон полдня</h3>
+                    <p>Заказали утром — к вечеру всё ещё ждёте. Рабочие простаивают, объект стоит.</p>
+                    <div class="pain-comparison">
+                        <span class="pain-old">У других: 3-5 часов</span>
+                        <span class="pain-new">У нас: 1 час</span>
+                    </div>
+                </div>
+                <div class="pain-card">
+                    <div class="pain-icon pain-icon-red">&#128184;</div>
+                    <h3>Переплата за срочность</h3>
+                    <p>«Срочная доставка» = наценка 30-50%. У нас срочность — это стандарт.</p>
+                    <div class="pain-comparison">
+                        <span class="pain-old">Наценка: +30-50%</span>
+                        <span class="pain-new">У нас: 0%</span>
+                    </div>
+                </div>
+                <div class="pain-card">
+                    <div class="pain-icon pain-icon-red">&#128221;</div>
+                    <h3>Привезли не ту марку</h3>
+                    <p>Заказали М350 — приехал М200. Без сертификатов и документов.</p>
+                    <div class="pain-comparison">
+                        <span class="pain-old">Другие: «ну, примерно...»</span>
+                        <span class="pain-new">У нас: точно по заявке</span>
+                    </div>
+                </div>
+                <div class="pain-card">
+                    <div class="pain-icon pain-icon-red">&#128230;</div>
+                    <h3>Недовоз — минус 2 м³</h3>
+                    <p>Заплатили за 10 кубов, а залили 8. Кто будет считать — тот и заметит.</p>
+                    <div class="pain-comparison">
+                        <span class="pain-old">Другие: «может, так и надо»</span>
+                        <span class="pain-new">У нас: весы и GPS</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SOLUTION -->
+    <section class="solution" id="solution">
+        <div class="container">
+            <div class="solution-inner">
+                <div class="solution-text">
+                    <h2 class="section-title light">
+                        <span class="title-icon">&#9989;</span>
+                        Наше решение
+                    </h2>
+                    <p class="solution-desc">Собственный автопарк из <strong>30 миксеров</strong> — всегда наготове. GPS-трекинг в реальном времени. Подача от 1 часа.</p>
+                    <ul class="solution-list">
+                        <li><span class="check-icon">&#10003;</span> Миксер выезжает сразу после заявки</li>
+                        <li><span class="check-icon">&#10003;</span> Вы видите где едет ваш миксер</li>
+                        <li><span class="check-icon">&#10003;</span> Точная марка — сертификаты с каждой машиной</li>
+                        <li><span class="check-icon">&#10003;</span> Точный объём — взвешивание на выезде</li>
+                    </ul>
+                    <button class="btn btn-primary" onclick="scrollToSection('calculator')">Рассчитать объём</button>
+                </div>
+                <div class="solution-visual">
+                    <div class="mixer-counter">
+                        <div class="mixer-icon">&#128666;</div>
+                        <div class="mixer-count-label">Миксеров на линии</div>
+                        <div class="mixer-count" id="mixer-count-display">30</div>
+                        <div class="mixer-status active">Все исправны</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ADVANTAGES -->
+    <section class="advantages" id="advantages">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="title-icon">&#11088;</span>
+                Почему выбирают нас
+            </h2>
+
+            <div class="advantages-grid">
+                <div class="adv-card adv-card-large">
+                    <div class="adv-icon">&#9201;</div>
+                    <h3>Доставка за 1 час</h3>
+                    <p>Среднее время подачи по Кемерово. Если дольше — доставка бесплатно.</p>
+                    <div class="adv-metric">
+                        <span class="metric-value">47 мин</span>
+                        <span class="metric-label">среднее время</span>
+                    </div>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon">&#128205;</div>
+                    <h3>GPS-трекинг</h3>
+                    <p>Отслеживайте миксер в реальном времени по ссылке</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon">&#127753;</div>
+                    <h3>Работаем 24/7</h3>
+                    <p>Ночная заливка? Без проблем. Работаем круглосуточно</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon">&#128196;</div>
+                    <h3>Сертификаты</h3>
+                    <p>Паспорт качества на каждую партию. Всегда с документами</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon">&#128200;</div>
+                    <h3>Точный объём</h3>
+                    <p>Взвешивание на выезде. Ни грамма меньше, чем оплачено</p>
+                </div>
+                <div class="adv-card adv-card-large">
+                    <div class="adv-icon">&#128666;</div>
+                    <h3>Свой автопарк</h3>
+                    <p>30 миксеров от 5 до 12 м³. Не зависим от подрядчиков.</p>
+                    <div class="adv-metric">
+                        <span class="metric-value">5-12 м³</span>
+                        <span class="metric-label">объём миксера</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICES -->
+    <section class="prices" id="prices">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="title-icon">&#128176;</span>
+                Цены на бетон
+            </h2>
+            <p class="section-subtitle">От <strong>5 800 ₽/м³</strong> — доставка включена по Кемерово</p>
+
+            <div class="price-warning">
+                <span class="warning-icon">&#9888;</span>
+                <span>Цены актуальны на сегодня. Завтра могут вырасти — <strong>зафиксируйте сейчас</strong></span>
+            </div>
+
+            <div class="price-table-wrap">
+                <table class="price-table">
+                    <thead>
+                        <tr>
+                            <th>Марка</th>
+                            <th>Класс</th>
+                            <th>Цена за м³</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>М100</strong></td>
+                            <td>B7.5</td>
+                            <td class="price-cell">5 800 ₽</td>
+                            <td><button class="btn btn-sm" onclick="scrollToSection('calculator')">Заказать</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>М150</strong></td>
+                            <td>B12.5</td>
+                            <td class="price-cell">6 100 ₽</td>
+                            <td><button class="btn btn-sm" onclick="scrollToSection('calculator')">Заказать</button></td>
+                        </tr>
+                        <tr class="price-popular">
+                            <td><strong>М200</strong></td>
+                            <td>B15</td>
+                            <td class="price-cell">6 400 ₽</td>
+                            <td><button class="btn btn-sm" onclick="scrollToSection('calculator')">Заказать</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>М250</strong></td>
+                            <td>B20</td>
+                            <td class="price-cell">6 800 ₽</td>
+                            <td><button class="btn btn-sm" onclick="scrollToSection('calculator')">Заказать</button></td>
+                        </tr>
+                        <tr class="price-popular">
+                            <td><strong>М300</strong></td>
+                            <td>B22.5</td>
+                            <td class="price-cell">7 200 ₽</td>
+                            <td><button class="btn btn-sm" onclick="scrollToSection('calculator')">Заказать</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>М350</strong></td>
+                            <td>B25</td>
+                            <td class="price-cell">7 600 ₽</td>
+                            <td><button class="btn btn-sm" onclick="scrollToSection('calculator')">Заказать</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>М400</strong></td>
+                            <td>B30</td>
+                            <td class="price-cell">8 200 ₽</td>
+                            <td><button class="btn btn-sm" onclick="scrollToSection('calculator')">Заказать</button></td>
+                        </tr>
+                        <tr>
+                            <td><strong>М500</strong></td>
+                            <td>B40</td>
+                            <td class="price-cell">9 500 ₽</td>
+                            <td><button class="btn btn-sm" onclick="scrollToSection('calculator')">Заказать</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="price-note">
+                Доставка по Кемерово включена. За город — от 80 ₽/км
+            </div>
+        </div>
+    </section>
+
+    <!-- CALCULATOR -->
+    <section class="calculator" id="calculator">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="title-icon">&#128187;</span>
+                Калькулятор бетона
+            </h2>
+            <p class="section-subtitle">Рассчитайте объём и стоимость за 10 секунд</p>
+
+            <div class="calc-container">
+                <div class="calc-tabs">
+                    <button class="calc-tab active" data-tab="plate" onclick="switchCalcTab('plate')">
+                        <span class="calc-tab-icon">&#9635;</span> Плита
+                    </button>
+                    <button class="calc-tab" data-tab="strip" onclick="switchCalcTab('strip')">
+                        <span class="calc-tab-icon">&#9644;</span> Лента
+                    </button>
+                    <button class="calc-tab" data-tab="cylinder" onclick="switchCalcTab('cylinder')">
+                        <span class="calc-tab-icon">&#9675;</span> Цилиндр
+                    </button>
+                </div>
+
+                <!-- PLATE -->
+                <div class="calc-panel active" id="panel-plate">
+                    <div class="calc-visual">
+                        <div class="shape-plate">
+                            <div class="shape-label-l">L</div>
+                            <div class="shape-label-w">W</div>
+                            <div class="shape-label-h">H</div>
+                        </div>
+                    </div>
+                    <div class="calc-form">
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Длина (м)</label>
+                                <input type="number" id="plate-l" placeholder="10" min="0" step="0.1" oninput="calcPlate()">
+                            </div>
+                            <div class="calc-field">
+                                <label>Ширина (м)</label>
+                                <input type="number" id="plate-w" placeholder="6" min="0" step="0.1" oninput="calcPlate()">
+                            </div>
+                            <div class="calc-field">
+                                <label>Высота (м)</label>
+                                <input type="number" id="plate-h" placeholder="0.3" min="0" step="0.01" oninput="calcPlate()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STRIP -->
+                <div class="calc-panel" id="panel-strip">
+                    <div class="calc-visual">
+                        <div class="shape-strip">
+                            <div class="shape-label-l">P</div>
+                            <div class="shape-label-w">W</div>
+                            <div class="shape-label-h">H</div>
+                        </div>
+                    </div>
+                    <div class="calc-form">
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Периметр (м)</label>
+                                <input type="number" id="strip-p" placeholder="40" min="0" step="0.1" oninput="calcStrip()">
+                            </div>
+                            <div class="calc-field">
+                                <label>Ширина (м)</label>
+                                <input type="number" id="strip-w" placeholder="0.4" min="0" step="0.01" oninput="calcStrip()">
+                            </div>
+                            <div class="calc-field">
+                                <label>Высота (м)</label>
+                                <input type="number" id="strip-h" placeholder="0.8" min="0" step="0.01" oninput="calcStrip()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CYLINDER -->
+                <div class="calc-panel" id="panel-cylinder">
+                    <div class="calc-visual">
+                        <div class="shape-cylinder">
+                            <div class="shape-label-r">r</div>
+                            <div class="shape-label-h">H</div>
+                        </div>
+                    </div>
+                    <div class="calc-form">
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Радиус (м)</label>
+                                <input type="number" id="cyl-r" placeholder="1.5" min="0" step="0.1" oninput="calcCylinder()">
+                            </div>
+                            <div class="calc-field">
+                                <label>Высота (м)</label>
+                                <input type="number" id="cyl-h" placeholder="3" min="0" step="0.1" oninput="calcCylinder()">
+                            </div>
+                            <div class="calc-field calc-field-hidden">
+                                <label>&nbsp;</label>
+                                <input type="hidden" disabled>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RESULT -->
+                <div class="calc-result" id="calc-result" style="display:none;">
+                    <div class="calc-result-volume">
+                        <span class="result-label">Объём бетона:</span>
+                        <span class="result-value" id="calc-volume">0</span>
+                        <span class="result-unit">м³</span>
+                    </div>
+                    <div class="calc-result-price">
+                        <span class="result-label">Стоимость от:</span>
+                        <span class="result-value" id="calc-price">0</span>
+                        <span class="result-unit">₽</span>
+                    </div>
+                    <div class="calc-result-note">Окончательная цена зависит от марки бетона</div>
+                    <div class="calc-result-actions">
+                        <a href="tel:83842446633" class="btn btn-primary btn-pulse">
+                            <span class="btn-icon">&#128222;</span> Заказать с доставкой
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROCESS -->
+    <section class="process" id="process">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="title-icon">&#128640;</span>
+                Как это работает
+            </h2>
+            <p class="section-subtitle">От заявки до выгрузки — менее 1 часа</p>
+
+            <div class="process-timeline">
+                <div class="process-step">
+                    <div class="step-number">1</div>
+                    <div class="step-icon">&#128222;</div>
+                    <h3>Заявка</h3>
+                    <p>Звоните или оставляете заявку. Указываете марку и объём.</p>
+                    <div class="step-time">
+                        <span class="step-time-icon">&#9201;</span> 2 минуты
+                    </div>
+                </div>
+                <div class="process-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-time">через 10 мин</div>
+                </div>
+                <div class="process-step">
+                    <div class="step-number">2</div>
+                    <div class="step-icon">&#128666;</div>
+                    <h3>Миксер в пути</h3>
+                    <p>Машина уже выехала. Вы видите её на карте по GPS-ссылке.</p>
+                    <div class="step-time">
+                        <span class="step-time-icon">&#9201;</span> 30 минут
+                    </div>
+                </div>
+                <div class="process-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-time">на объекте</div>
+                </div>
+                <div class="process-step">
+                    <div class="step-number">3</div>
+                    <div class="step-icon">&#128167;</div>
+                    <h3>Выгрузка</h3>
+                    <p>Миксер на месте. Выгружаем точно в опалубку. Быстро и аккуратно.</p>
+                    <div class="step-time">
+                        <span class="step-time-icon">&#9201;</span> 15 минут
+                    </div>
+                </div>
+                <div class="process-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-time">готово</div>
+                </div>
+                <div class="process-step">
+                    <div class="step-number">4</div>
+                    <div class="step-icon">&#9989;</div>
+                    <h3>Приёмка</h3>
+                    <p>Подписываете акт. Получаете паспорт качества. Всё!</p>
+                    <div class="step-time">
+                        <span class="step-time-icon">&#9201;</span> 5 минут
+                    </div>
+                </div>
+            </div>
+
+            <div class="process-total">
+                <span class="total-label">Итого:</span>
+                <span class="total-time">~47 минут</span>
+                <span class="total-sub">от заявки до приёмки</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- TRUST -->
+    <section class="trust" id="trust">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="title-icon">&#127942;</span>
+                Нам доверяют
+            </h2>
+
+            <div class="trust-stats">
+                <div class="trust-stat">
+                    <div class="trust-number" data-target="600">0</div>
+                    <div class="trust-plus">+</div>
+                    <div class="trust-label">Объектов построено</div>
+                </div>
+                <div class="trust-stat">
+                    <div class="trust-number" data-target="12">0</div>
+                    <div class="trust-label">Лет на рынке</div>
+                </div>
+                <div class="trust-stat">
+                    <div class="trust-number" data-target="30">0</div>
+                    <div class="trust-label">Миксеров в парке</div>
+                </div>
+                <div class="trust-stat">
+                    <div class="trust-number" data-target="15000">0</div>
+                    <div class="trust-plus">+</div>
+                    <div class="trust-label">Рейсов выполнено</div>
+                </div>
+            </div>
+
+            <div class="trust-badges">
+                <div class="trust-badge">
+                    <div class="badge-icon">&#127941;</div>
+                    <div class="badge-text">Лучший поставщик бетона Кемерово 2024</div>
+                </div>
+                <div class="trust-badge">
+                    <div class="badge-icon">&#128196;</div>
+                    <div class="badge-text">Все сертификаты и лицензии</div>
+                </div>
+                <div class="trust-badge">
+                    <div class="badge-icon">&#128274;</div>
+                    <div class="badge-text">Гарантия качества по ГОСТ</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- URGENCY -->
+    <section class="urgency" id="urgency">
+        <div class="container">
+            <div class="urgency-card">
+                <div class="urgency-alert">
+                    <span class="alert-pulse">&#128308;</span>
+                    <span class="alert-text">Высокий спрос!</span>
+                </div>
+                <h3 class="urgency-title">
+                    Осталось <span id="free-mixers-urgency" class="urgency-count">3</span> свободных миксера на сегодня
+                </h3>
+                <p class="urgency-desc">Сезон строительства в разгаре. Миксеры разбирают быстро. Забронируйте свой прямо сейчас.</p>
+                <div class="urgency-timer">
+                    <span>До конца рабочего дня:</span>
+                    <span id="workday-timer" class="workday-countdown">00:00:00</span>
+                </div>
+                <a href="tel:83842446633" class="btn btn-primary btn-pulse btn-lg">
+                    <span class="btn-icon">&#9889;</span> Забронировать миксер
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="cta-final" id="cta-final">
+        <div class="container">
+            <div class="cta-inner">
+                <h2 class="cta-title">Закажи сейчас —<br>привезём через <span class="cta-accent">час</span></h2>
+                <p class="cta-subtitle">Позвоните прямо сейчас и получите скидку 5% на первый заказ</p>
+
+                <div class="cta-actions">
+                    <a href="tel:83842446633" class="btn btn-white btn-pulse btn-lg">
+                        <span class="btn-icon">&#128222;</span> 8 (3842) 44-66-33
+                    </a>
+                </div>
+
+                <div class="cta-info">
+                    <div class="cta-info-item">
+                        <span class="info-icon">&#128205;</span>
+                        <span>пр. Шахтёров, 25, Кемерово</span>
+                    </div>
+                    <div class="cta-info-item">
+                        <span class="info-icon">&#128338;</span>
+                        <span>Работаем 24/7</span>
+                    </div>
+                    <div class="cta-info-item">
+                        <span class="info-icon">&#9889;</span>
+                        <span>Доставка от 1 часа</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-logo">ГРАНИТОН</div>
+                <div class="footer-info">
+                    <p>пр. Шахтёров, 25, Кемерово</p>
+                    <a href="tel:83842446633">8 (3842) 44-66-33</a>
+                </div>
+                <div class="footer-copy">
+                    <p>&copy; 2026 Гранитон. Все права защищены.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- FLOATING CTA -->
+    <div class="floating-cta" id="floatingCta">
+        <a href="tel:83842446633" class="floating-btn">
+            <span class="float-icon">&#128222;</span>
+            <span class="float-text">Позвонить</span>
+        </a>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

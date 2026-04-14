@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Бетон с доставкой - Кемерово</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;color:#222;line-height:1.6}
+.container{max-width:1100px;margin:0 auto;padding:0 20px}
+
+/* Loading */
+#loading{text-align:center;padding:100px 20px;font-size:24px;color:#666}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#1e3a5f 0%,#2d5a87 100%);color:#fff;padding:80px 0;text-align:center}
+.hero h1{font-size:clamp(28px,5vw,48px);margin-bottom:20px;font-weight:800}
+.hero p{font-size:clamp(16px,3vw,22px);margin-bottom:40px;opacity:0.9}
+
+/* Форма */
+.form-card{background:#fff;border-radius:16px;padding:40px;max-width:600px;margin:-60px auto 60px;box-shadow:0 20px 60px rgba(0,0,0,0.15)}
+.form-card h2{text-align:center;margin-bottom:30px;font-size:24px;color:#1e3a5f}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;margin-bottom:8px;font-weight:600;color:#555}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:14px 18px;border:2px solid #e5e5e5;border-radius:10px;font-size:16px;transition:all 0.3s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#2d5a87;outline:none;box-shadow:0 0 0 4px rgba(45,90,135,0.1)}
+.btn-primary{width:100%;padding:16px;background:linear-gradient(135deg,#ff6b00 0%,#ff8533 100%);color:#fff;border:none;border-radius:10px;font-size:18px;font-weight:700;cursor:pointer;transition:all 0.3s}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,107,0,0.3)}
+.btn-primary:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+
+/* Цены */
+.prices{padding:80px 0;background:#fff}
+.prices h2{text-align:center;margin-bottom:60px;font-size:clamp(24px,4vw,36px)}
+.price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px}
+.price-card{background:#f8f9fa;padding:25px;border-radius:12px;text-align:center;border:2px solid transparent;transition:all 0.3s}
+.price-card:hover{border-color:#ff6b00;transform:translateY(-4px);box-shadow:0 10px 30px rgba(0,0,0,0.1)}
+.price-card h3{font-size:28px;color:#1e3a5f;margin-bottom:10px}
+.price-card .price{font-size:24px;font-weight:800;color:#ff6b00;margin-bottom:10px}
+.price-card p{color:#666;font-size:14px}
+
+/* Преимущества */
+.features{padding:80px 0}
+.features h2{text-align:center;margin-bottom:60px;font-size:clamp(24px,4vw,36px)}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:30px}
+.feature-card{text-align:center;padding:30px;background:#fff;border-radius:16px}
+.feature-icon{font-size:48px;margin-bottom:20px}
+.feature-card h3{margin-bottom:15px;font-size:20px}
+.feature-card p{color:#666}
+
+/* FAQ */
+.faq{padding:80px 0}
+.faq h2{text-align:center;margin-bottom:60px;font-size:clamp(24px,4vw,36px)}
+.faq-item{background:#fff;margin-bottom:15px;border-radius:12px;overflow:hidden}
+.faq-question{padding:20px 25px;cursor:pointer;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.faq-answer{padding:0 25px;max-height:0;overflow:hidden;transition:all 0.3s;color:#666}
+.faq-item.active .faq-answer{padding:0 25px 20px;max-height:200px}
+
+/* Футер */
+footer{background:#1e3a5f;color:#fff;padding:40px 0;text-align:center}
+
+/* Модальное окно */
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center}
+.modal.active{display:flex}
+.modal-content{background:#fff;padding:50px;border-radius:20px;text-align:center;max-width:400px}
+.modal-content .check{font-size:64px;color:#22c55e;margin-bottom:20px}
+.modal-content h3{font-size:24px;margin-bottom:15px}
+.modal-content p{color:#666;margin-bottom:30px}
+.modal-close{padding:12px 40px;background:#1e3a5f;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px}
+
+/* Адаптив */
+@media(max-width:768px){
+  .hero{padding:60px 0}
+  .form-card{padding:30px 20px;margin:-40px 20px 40px}
+  .price-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
+  .price-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="loading">⏳ Загрузка...</div>
+
+<div id="app" style="display:none">
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <h1 id="heroTitle"></h1>
+      <p id="heroSubtitle"></p>
+    </div>
+  </section>
+
+  <!-- Форма заявки -->
+  <div class="container">
+    <div class="form-card">
+      <h2 id="formTitle"></h2>
+      <form id="leadForm">
+        <div class="form-group">
+          <label>Ваше имя</label>
+          <input type="text" name="name" placeholder="Иван" required>
+        </div>
+        <div class="form-group">
+          <label>Телефон</label>
+          <input type="tel" name="phone" placeholder="+7 (999) 123-45-67" required>
+        </div>
+        <div class="form-group">
+          <label>Марка бетона</label>
+          <select name="concrete_grade" id="gradeSelect" required>
+            <option value="">Выберите марку</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Объём (м³)</label>
+          <input type="number" name="volume" placeholder="5" min="1" step="0.5" required>
+        </div>
+        <div class="form-group">
+          <label>Адрес доставки</label>
+          <input type="text" name="address" placeholder="ул. Ленина, 1">
+        </div>
+        <div class="form-group">
+          <label>Когда нужна доставка?</label>
+          <select name="urgency">
+            <option value="today">Сегодня</option>
+            <option value="tomorrow">Завтра</option>
+            <option value="week">На неделе</option>
+            <option value="normal">Не срочно</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Комментарий</label>
+          <textarea name="comment" rows="3" placeholder="Дополнительные пожелания..."></textarea>
+        </div>
+        <button type="submit" class="btn-primary" id="submitBtn"></button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Цены -->
+  <section class="prices">
+    <div class="container">
+      <h2 id="priceTitle"></h2>
+      <p style="text-align:center;color:#666;margin-bottom:40px" id="deliveryNote"></p>
+      <div class="price-grid" id="priceGrid"></div>
+    </div>
+  </section>
+
+  <!-- Преимущества -->
+  <section class="features">
+    <div class="container">
+      <h2>Почему выбирают нас</h2>
+      <div class="features-grid" id="featuresGrid"></div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq">
+    <div class="container">
+      <h2>Частые вопросы</h2>
+      <div id="faqList"></div>
+    </div>
+  </section>
+
+  <!-- Футер -->
+  <footer>
+    <div class="container">
+      <p id="footerCompany"></p>
+      <p style="margin-top:10px;opacity:0.8" id="footerContacts"></p>
+    </div>
+  </footer>
+
+  <!-- Модальное окно успеха -->
+  <div class="modal" id="successModal">
+    <div class="modal-content">
+      <div class="check">✓</div>
+      <h3 id="successTitle"></h3>
+      <p id="successText"></p>
+      <button class="modal-close" onclick="closeModal()">Отлично!</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ КОНФИГ ============
+const API_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:8000' 
+  : 'https://YOUR-BACKEND.onrender.com';
+
+// ============ ЗАГРУЗКА ДАННЫХ ============
+async function loadLandingData() {
+  try {
+    const response = await fetch(`${API_URL}/api/landing-data`);
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      renderLanding(result.data);
+    }
+  } catch (err) {
+    console.error('Ошибка загрузки данных:', err);
+    // Fallback: загрузка из локального файла
+    loadLocalFallback();
+  }
+}
+
+async function loadLocalFallback() {
+  try {
+    const response = await fetch('landing-data.json');
+    const data = await response.json();
+    renderLanding(data);
+  } catch (err) {
+    document.getElementById('loading').innerHTML = '⚠️ Ошибка загрузки. Обновите страницу.';
+  }
+}
+
+// ============ РЕНДЕР ============
+function renderLanding(data) {
+  // Hero
+  document.getElementById('heroTitle').textContent = data.hero.title;
+  document.getElementById('heroSubtitle').textContent = data.hero.subtitle;
+  
+  // Форма
+  document.getElementById('formTitle').textContent = data.form.title;
+  document.getElementById('submitBtn').textContent = '📩 ' + data.form.submit_text;
+  
+  // Select марки
+  const gradeSelect = document.getElementById('gradeSelect');
+  data.pricing.items.forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.grade;
+    option.textContent = `${item.grade} - ${item.price.toLocaleString()} ₽/м³`;
+    gradeSelect.appendChild(option);
+  });
+  
+  // Цены
+  document.getElementById('priceTitle').textContent = data.pricing.title;
+  document.getElementById('deliveryNote').textContent = data.pricing.delivery_note;
+  
+  const priceGrid = document.getElementById('priceGrid');
+  data.pricing.items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'price-card';
+    card.innerHTML = `
+      <h3>${item.grade}</h3>
+      <div class="price">${item.price.toLocaleString()} ₽/м³</div>
+      <p>${item.description}</p>
+    `;
+    priceGrid.appendChild(card);
+  });
+  
+  // Преимущества
+  const featuresGrid = document.getElementById('featuresGrid');
+  data.features.forEach(feature => {
+    const card = document.createElement('div');
+    card.className = 'feature-card';
+    card.innerHTML = `
+      <div class="feature-icon">${feature.icon}</div>
+      <h3>${feature.title}</h3>
+      <p>${feature.text}</p>
+    `;
+    featuresGrid.appendChild(card);
+  });
+  
+  // FAQ
+  const faqList = document.getElementById('faqList');
+  data.faq.forEach(item => {
+    const faqItem = document.createElement('div');
+    faqItem.className = 'faq-item';
+    faqItem.innerHTML = `
+      <div class="faq-question" onclick="toggleFaq(this)">
+        <span>${item.question}</span>
+        <span>+</span>
+      </div>
+      <div class="faq-answer">${item.answer}</div>
+    `;
+    faqList.appendChild(faqItem);
+  });
+  
+  // Футер
+  document.getElementById('footerCompany').textContent = `© 2026 ${data.company.name}`;
+  document.getElementById('footerContacts').textContent = 
+    `📞 ${data.company.phone} | 📍 ${data.company.address}`;
+  
+  // Модалка
+  document.getElementById('successTitle').textContent = data.form.success_title;
+  document.getElementById('successText').textContent = data.form.success_text;
+  
+  // Показать приложение
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+// ============ ФОРМА ============
+const form = document.getElementById('leadForm');
+const submitBtn = document.getElementById('submitBtn');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳ Отправка...';
+  
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+  
+  try {
+    const response = await fetch(`${API_URL}/api/leads/create`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === 'success' || result.status === 'duplicate') {
+      document.getElementById('successModal').classList.add('active');
+      form.reset();
+    } else {
+      alert('Ошибка: ' + result.message);
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Ошибка соединения. Попробуйте позже или позвоните нам.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = '📩 ' + document.getElementById('submitBtn').dataset.originalText;
+  }
+});
+
+// ============ УТИЛИТЫ ============
+function toggleFaq(el) {
+  el.parentElement.classList.toggle('active');
+}
+
+function closeModal() {
+  document.getElementById('successModal').classList.remove('active');
+}
+
+// Маска телефона
+document.addEventListener('DOMContentLoaded', () => {
+  const phoneInput = document.querySelector('input[name="phone"]');
+  if (phoneInput) {
+    phoneInput.addEventListener('input', function(e) {
+      let val = e.target.value.replace(/\D/g, '');
+      if (val.length > 0) {
+        if (val[0] === '7' || val[0] === '8') val = val.substring(1);
+        let formatted = '+7';
+        if (val.length > 0) formatted += ' (' + val.substring(0, 3);
+        if (val.length >= 3) formatted += ') ' + val.substring(3, 6);
+        if (val.length >= 6) formatted += '-' + val.substring(6, 8);
+        if (val.length >= 8) formatted += '-' + val.substring(8, 10);
+        e.target.value = formatted;
+      }
+    });
+  }
+  
+  // Загрузка данных
+  loadLandingData();
+});
+</script>
+
+</body>
+</html>
