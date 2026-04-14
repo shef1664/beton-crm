@@ -307,22 +307,15 @@ async def get_prices():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Запуск бота при старте
+# Запуск при старте
 @app.on_event("startup")
 async def startup_event():
-    """Запуск Telegram бота при старте приложения"""
+    """Запуск Backend API"""
     logger.info("🚀 Запуск Backend API...")
-    
-    if settings.TELEGRAM_BOT_TOKEN:
-        try:
-            from bot.main import start_bot
-            import asyncio
-            asyncio.create_task(start_bot())
-            logger.info("✅ Telegram бот запущен")
-        except Exception as e:
-            logger.warning(f"⚠️ Не удалось запустить бота: {e}")
-    
-    logger.info("✅ Backend API готов")
+    logger.info(f"   amoCRM: {'✅' if amocrm.is_available() else '⏳ Не настроен'}")
+    logger.info(f"   Baserow: {'✅' if baserow.is_available() else '⏳ Не настроен'}")
+    logger.info(f"   Telegram: {'✅' if notifier.is_available() else '⏳ Не настроен'}")
+    logger.info("✅ Backend API готов!")
 
 
 if __name__ == "__main__":
