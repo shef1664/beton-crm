@@ -49,7 +49,8 @@ class AmoCRMService:
                 json=contacts_data
             )
             contact_response.raise_for_status()
-            contact_id = contact_response.json()["_embedded"]["items"][0]["id"]
+            c_embedded = contact_response.json()["_embedded"]
+            contact_id = (c_embedded.get("contacts") or c_embedded.get("items"))[0]["id"]
             
             # Создание сделки (лида)
             lead_data_amo = [{
@@ -121,7 +122,8 @@ class AmoCRMService:
                 params=params
             )
             response.raise_for_status()
-            return response.json()["_embedded"]["items"]
+            gl_embedded = response.json().get("_embedded", {})
+            return gl_embedded.get("leads") or gl_embedded.get("items") or []
     
     async def add_comment(self, lead_id: int, comment: str):
         """Добавление комментария к лиду"""
