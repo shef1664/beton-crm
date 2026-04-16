@@ -8,7 +8,10 @@ logger = logging.getLogger(__name__)
 
 class AmoCRMService:
     def __init__(self):
-        self.base_url = f"https://{settings.AMOCRM_DOMAIN}/api/v4"
+        domain = settings.AMOCRM_DOMAIN
+        if domain and not domain.endswith(".amocrm.ru"):
+            domain = f"{domain}.amocrm.ru"
+        self.base_url = f"https://{domain}/api/v4"
         self.access_token = settings.AMOCRM_ACCESS_TOKEN
         self.is_configured = bool(self.access_token and settings.AMOCRM_DOMAIN)
     
