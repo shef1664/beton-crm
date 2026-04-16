@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # На Render — персистентный диск /data, локально — рядом с backend/
 import os
 if os.getenv("RENDER"):
-    DB_PATH = Path("/data/leads.db")
+    DB_PATH = Path("/tmp/data/leads.db")
 else:
     DB_PATH = Path(__file__).resolve().parent.parent / "data" / "leads.db"
 

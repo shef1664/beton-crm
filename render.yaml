@@ -24,7 +24,3 @@ services:
         value: "10818570"
       - key: BACKEND_URL
         sync: false
-    disk:
-      name: sqlite-data
-      mountPath: /data
-      sizeGB: 1
