@@ -52,6 +52,21 @@ class AmoCRMService:
             c_embedded = contact_response.json()["_embedded"]
             contact_id = (c_embedded.get("contacts") or c_embedded.get("items"))[0]["id"]
             
+            # Формируем описание заявки в поле note
+            details = []
+            if lead_data.get("concrete_grade"):
+                details.append(f"Марка: {lead_data['concrete_grade']}")
+            if lead_data.get("volume"):
+                details.append(f"Объём: {lead_data['volume']} м³")
+            if lead_data.get("address"):
+                details.append(f"Адрес: {lead_data['address']}")
+            if lead_data.get("delivery_date"):
+                details.append(f"Дата: {lead_data['delivery_date']}")
+            if lead_data.get("calculated_amount"):
+                details.append(f"Сумма: {lead_data['calculated_amount']} руб")
+            if lead_data.get("comment"):
+                details.append(f"Комментарий: {lead_data['comment']}")
+
             # Создание сделки (лида)
             lead_data_amo = [{
                 "name": f"Заявка: {lead_data.get('name', 'Без имени')} - {lead_data.get('concrete_grade', 'Не указана')}",
@@ -59,20 +74,7 @@ class AmoCRMService:
                 "status_id": settings.PIPELINE_STATUSES["new"],
                 "_embedded": {
                     "contacts": [{"id": contact_id}]
-                },
-                "custom_fields_values": [
-                    {"field_code": "PHONE", "values": [{"value": lead_data.get("phone", "")}]},
-                    {"field_code": "SOURCE", "values": [{"value": lead_data.get("source", "landing")}]},
-                    {"field_code": "concrete_grade", "values": [{"value": lead_data.get("concrete_grade", "")}]},
-                    {"field_code": "volume", "values": [{"value": str(lead_data.get("volume", 0))}]},
-                    {"field_code": "address", "values": [{"value": lead_data.get("address", "")}]},
-                    {"field_code": "delivery_date", "values": [{"value": lead_data.get("delivery_date", "")}]},
-                    {"field_code": "urgency", "values": [{"value": lead_data.get("urgency", "normal")}]},
-                    {"field_code": "payment_method", "values": [{"value": lead_data.get("payment_method", "")}]},
-                    {"field_code": "calculated_amount", "values": [{"value": str(lead_data.get("calculated_amount", 0))}]},
-                    {"field_code": "distance", "values": [{"value": str(lead_data.get("distance", 0))}]},
-                    {"field_code": "comment", "values": [{"value": lead_data.get("comment", "")}]}
-                ]
+                }
             }]
             
             lead_response = await client.post(
@@ -83,7 +85,15 @@ class AmoCRMService:
             lead_response.raise_for_status()
             embedded = lead_response.json()["_embedded"]
             lead_id = (embedded.get("leads") or embedded.get("items"))[0]["id"]
-            
+
+            # Добавляем примечание с деталями заявки
+            if details:
+                await client.post(
+                    f"{self.base_url}/leads/{lead_id}/notes",
+                    headers=await self._get_headers(),
+                    json=[{"note_type": "common", "params": {"text": "\n".join(details)}}]
+                )
+
             logger.info(f"✅ Лид создан в amoCRM: {lead_id}")
             return lead_id
     
