@@ -46,17 +46,13 @@ class Settings:
     DELIVERY_PRICE_PER_KM: float = 150  # ₽/км
     MIXER_VOLUME: float = 7  # м³ в миксере
     
-    # Pipeline статусы
+    # Pipeline статусы (воронка "Продажи бетона", pipeline_id=10818570)
     PIPELINE_STATUSES: dict = {
-        "new": 5311172,      # Новый лид
-        "data_collection": 5311174,  # Сбор данных
-        "qualification": 5311176,    # Квалификация
-        "calculation": 5311178,      # Расчёт
-        "follow_up": 5311180,        # Дожим
-        "hot_lead": 5311182,         # Горячий лид
-        "confirmed": 5311184,        # Сделка подтверждена
-        "completed": 5311186,        # Завершено
-        "lost": 5311188              # Проиграно
+        "new": 85162970,           # Новый лид
+        "data_collection": 85162974,  # Сбор данных
+        "calculation": 85162978,   # Расчёт отправлен
+        "hot_lead": 85162982,      # Горячий
+        "confirmed": 85162986,     # Сделка подтверждена
     }
 
 settings = Settings()
