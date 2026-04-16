@@ -1,4 +1,23 @@
-document.addEventListener('DOMContentLoaded', () => {
+// ─── API URL ─────────────────────────────────────────────────
+const BACKEND_BASE = 'https://beton-backend-kwa9.onrender.com';
+let API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : BACKEND_BASE;
+
+async function loadConfig() {
+    try {
+        const r = await fetch(`${API_URL}/api/config`, {
+            signal: AbortSignal.timeout(3000)
+        });
+        if (r.ok) {
+            const cfg = await r.json();
+            if (cfg.api_url) API_URL = cfg.api_url;
+        }
+    } catch (_) { /* используем fallback */ }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadConfig();
 
     // ===== CALCULATOR LOGIC =====
     const calcState = {
@@ -120,10 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- CTA form submission ----
     const ctaForm = document.getElementById('cta-form');
 
-    // API URL для отправки лидов
-    const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:8000'
-        : 'https://beton-backend-kwa9.onrender.com';
+    // API_URL загружен выше через loadConfig()
 
     // ---- Телефонная маска ----
     const phoneInput = ctaForm ? ctaForm.querySelector('input[name="phone"]') : null;

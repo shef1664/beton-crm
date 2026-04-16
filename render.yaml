@@ -2,25 +2,36 @@ services:
   - type: web
     name: beton-backend
     runtime: python
+    region: frankfurt
+
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+
+    plan: free
+    autoDeploy: true
+    branch: master
+
+    healthCheckPath: /health
+
     envVars:
-      - key: PORT
-        value: 10000
-      - key: RENDER
-        value: "true"
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_ADMIN_ID
         sync: false
-      - key: API_SECRET_KEY
-        generateValue: true
       - key: AMOCRM_DOMAIN
         sync: false
       - key: AMOCRM_ACCESS_TOKEN
         sync: false
       - key: AMOCRM_PIPELINE_ID
         value: "10818570"
+      - key: API_SECRET_KEY
+        sync: false
       - key: BACKEND_URL
         sync: false
+      - key: PORT
+        value: "10000"
+      - key: DEBUG
+        value: "false"
+      - key: RENDER
+        value: "true"

@@ -1,44 +1,62 @@
 """
-keepalive.py — пингует backend каждые 10 минут чтобы Render free tier не засыпал.
-Запуск: python keepalive.py
-Остановка: Ctrl+C
+keepalive.py — пингует Render каждые 10 минут чтобы сервис не засыпал.
+
+Запуск:
+    python keepalive.py https://beton-backend-kwa9.onrender.com
 """
 
+import sys
 import time
-import logging
-import os
-import urllib.request
-import urllib.error
+from datetime import datetime
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+try:
+    import requests
+except ImportError:
+    print("pip install requests")
+    sys.exit(1)
 
-BACKEND_URL = os.getenv("BACKEND_URL", "https://beton-backend-kwa9.onrender.com")
-INTERVAL_SECONDS = 600  # 10 минут
+INTERVAL = 600
+TIMEOUT = 15
+ENDPOINT = "/ping"
 
 
-def ping(url: str) -> bool:
+def get_url():
+    if len(sys.argv) < 2:
+        print("Usage: python keepalive.py <URL>")
+        sys.exit(1)
+    return sys.argv[1].strip().rstrip("/")
+
+
+def ping(url):
+    full_url = url + ENDPOINT
+    now = datetime.now().strftime("%H:%M:%S")
     try:
-        req = urllib.request.Request(f"{url}/ping", headers={"User-Agent": "keepalive/1.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            if resp.status == 200:
-                logger.info(f"OK  {url}/ping -> 200")
-                return True
-            logger.warning(f"WARN {url}/ping -> {resp.status}")
-            return False
-    except urllib.error.URLError as e:
-        logger.error(f"FAIL {url}/ping -> {e.reason}")
+        r = requests.get(full_url, timeout=TIMEOUT)
+        status = "OK" if r.status_code == 200 else f"ERR {r.status_code}"
+        print(f"  [{now}] {status}")
+        return r.status_code == 200
+    except requests.Timeout:
+        print(f"  [{now}] TIMEOUT")
         return False
     except Exception as e:
-        logger.error(f"FAIL {url}/ping -> {e}")
+        print(f"  [{now}] ERROR: {e}")
         return False
+
+
+def main():
+    url = get_url()
+    print(f"Keep-alive: {url}{ENDPOINT} каждые {INTERVAL//60} мин. Ctrl+C для стоп.")
+    total = success = 0
+    try:
+        while True:
+            total += 1
+            if ping(url):
+                success += 1
+            time.sleep(INTERVAL)
+    except KeyboardInterrupt:
+        pct = round(success / total * 100) if total else 0
+        print(f"\nСтоп. {success}/{total} успешных ({pct}%)")
 
 
 if __name__ == "__main__":
-    logger.info(f"Keepalive запущен. Цель: {BACKEND_URL}, интервал: {INTERVAL_SECONDS}с")
-    while True:
-        ping(BACKEND_URL)
-        time.sleep(INTERVAL_SECONDS)
+    main()

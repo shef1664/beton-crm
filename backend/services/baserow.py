@@ -13,7 +13,15 @@ logger = logging.getLogger(__name__)
 # На Render — персистентный диск /data, локально — рядом с backend/
 import os
 if os.getenv("RENDER"):
-    DB_PATH = Path("/tmp/data/leads.db")
+    # Пробуем примонтированный диск, fallback на /tmp
+    _data_dir = Path("/data")
+    try:
+        _data_dir.mkdir(parents=True, exist_ok=True)
+        (_data_dir / ".test").touch()
+        (_data_dir / ".test").unlink()
+        DB_PATH = _data_dir / "leads.db"
+    except PermissionError:
+        DB_PATH = Path("/tmp/data/leads.db")
 else:
     DB_PATH = Path(__file__).resolve().parent.parent / "data" / "leads.db"
 

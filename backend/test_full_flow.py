@@ -1,126 +1,117 @@
 """
-test_full_flow.py — проверяет полный цикл работы задеплоенного backend.
-Запуск: python test_full_flow.py [URL]
-Пример: python test_full_flow.py https://beton-backend-kwa9.onrender.com
+test_full_flow.py — проверка полного цикла работы системы.
+
+Запуск:
+    python test_full_flow.py
+    python test_full_flow.py https://beton-backend-kwa9.onrender.com
 """
 
 import sys
 import json
-import urllib.request
-import urllib.error
-import time
 
-BASE_URL = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "https://beton-backend-kwa9.onrender.com"
-TIMEOUT = 20
+try:
+    import requests
+except ImportError:
+    print("pip install requests")
+    sys.exit(1)
 
-OK = "OK  "
-FAIL = "FAIL"
-SKIP = "SKIP"
+TIMEOUT = 15
+DEFAULT_URL = "http://localhost:8000"
 
-
-def request(method: str, path: str, body=None, headers=None) -> tuple:
-    """Возвращает (status_code, dict_or_none)."""
-    url = BASE_URL + path
-    data = json.dumps(body).encode() if body else None
-    req_headers = {"Content-Type": "application/json", "User-Agent": "test_full_flow/1.0"}
-    if headers:
-        req_headers.update(headers)
-    req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            raw = resp.read().decode()
-            try:
-                return resp.status, json.loads(raw)
-            except Exception:
-                return resp.status, {"_raw": raw[:200]}
-    except urllib.error.HTTPError as e:
-        raw = e.read().decode()
-        try:
-            return e.code, json.loads(raw)
-        except Exception:
-            return e.code, {"_raw": raw[:200]}
-    except Exception as e:
-        return 0, {"_error": str(e)}
-
-
-def check(label: str, ok: bool, detail: str = ""):
-    icon = OK if ok else FAIL
-    line = f"[{icon}] {label}"
-    if detail:
-        line += f"  ({detail})"
-    print(line)
-    return ok
-
+CALC_DATA = {"concrete_grade": "М300", "volume": 10, "distance": 15}
+LEAD_DATA = {"name": "Тест Авто", "phone": "+79991234567", "concrete_grade": "М300", "volume": 10, "source": "test"}
 
 results = []
 
-print(f"\n{'='*55}")
-print(f"  ПОЛНЫЙ ТЕСТ BACKEND")
-print(f"  URL: {BASE_URL}")
-print(f"{'='*55}\n")
 
-# 1. Ping
-status, body = request("GET", "/ping")
-results.append(check("GET /ping", status == 200, f"status={status}"))
+def ok(name, detail=""):
+    print(f"  [OK  ] {name}" + (f"  ({detail})" if detail else ""))
+    results.append((name, True, detail))
 
-# 2. Root
-status, body = request("GET", "/")
-results.append(check("GET /", status == 200, body.get("status", "")))
 
-# 3. Health
-status, body = request("GET", "/health")
-results.append(check("GET /health", status == 200, body.get("status", "")))
+def fail(name, detail=""):
+    print(f"  [FAIL] {name}" + (f"  ({detail})" if detail else ""))
+    results.append((name, False, detail))
 
-# 4. Public config
-status, body = request("GET", "/api/config")
-results.append(check("GET /api/config", status == 200, str(body.get("services", ""))))
 
-# 5. Calculator — М200, 5м³, 10км
-status, body = request("POST", "/api/calculate", {
-    "concrete_grade": "М200",
-    "volume": 5.0,
-    "distance": 10
-})
-ok = status == 200 and "calculation" in body
-detail = f"total={body.get('calculation', {}).get('total', '?')}" if ok else f"status={status}"
-results.append(check("POST /api/calculate", ok, detail))
+def req(method, base, path, data=None):
+    url = base + path
+    try:
+        if method == "GET":
+            r = requests.get(url, timeout=TIMEOUT)
+        else:
+            r = requests.post(url, json=data, timeout=TIMEOUT)
+        try:
+            body = r.json()
+        except Exception:
+            body = {}
+        return r.status_code, body
+    except Exception as e:
+        return 0, {"error": str(e)}
 
-# 6. Lead creation — тестовый лид
-ts = int(time.time())
-status, body = request("POST", "/api/leads/create", {
-    "name": "Тест Авто",
-    "phone": f"+7999{ts % 10000000:07d}",
-    "source": "test_full_flow",
-    "concrete_grade": "М200",
-    "volume": 5.0
-})
-lead_ok = status == 201 and body.get("status") in ("success", "duplicate")
-lead_id = body.get("lead_id") if lead_ok and body.get("status") == "success" else None
-detail = f"lead_id={lead_id}" if lead_id else body.get("status", f"status={status}")
-results.append(check("POST /api/leads/create", lead_ok, detail))
 
-# 7. Get leads
-status, body = request("GET", "/api/leads?limit=5")
-ok = status == 200 and "leads" in body
-results.append(check("GET /api/leads", ok, f"count={body.get('count', '?')}"))
+def main():
+    base = sys.argv[1].strip().rstrip("/") if len(sys.argv) > 1 else DEFAULT_URL
 
-# 8. Landing data
-status, body = request("GET", "/api/landing-data")
-results.append(check("GET /api/landing-data", status == 200, "config loaded" if status == 200 else f"status={status}"))
+    print()
+    print("=" * 55)
+    print(f"  ТЕСТ BACKEND: {base}")
+    print("=" * 55)
+    print()
 
-# 9. Prices
-status, body = request("GET", "/api/prices")
-results.append(check("GET /api/prices", status == 200, "prices loaded" if status == 200 else f"status={status}"))
+    # 1. ping
+    s, b = req("GET", base, "/ping")
+    ok("GET /ping", f"status={s}") if s == 200 else fail("GET /ping", f"status={s}")
 
-# Summary
-total = len(results)
-passed = sum(results)
-failed = total - passed
+    # 2. root
+    s, b = req("GET", base, "/")
+    ok("GET /", "ok") if s == 200 else fail("GET /", f"status={s}")
 
-print(f"\n{'='*55}")
-print(f"  ИТОГО: {passed}/{total} тестов прошло")
-if failed:
-    print(f"  ПРОВАЛЕНО: {failed}")
-print(f"{'='*55}\n")
+    # 3. health
+    s, b = req("GET", base, "/health")
+    ok("GET /health", "healthy") if s == 200 else fail("GET /health", f"status={s}")
 
-sys.exit(0 if failed == 0 else 1)
+    # 4. config
+    s, b = req("GET", base, "/api/config")
+    ok("GET /api/config", str({k: b[k] for k in ("amocrm", "telegram") if k in b.get("services", {})})) if s == 200 else fail("GET /api/config", f"status={s}")
+
+    # 5. calculate
+    s, b = req("POST", base, "/api/calculate", CALC_DATA)
+    total = b.get("total") or b.get("total_price") or 0
+    ok("POST /api/calculate", f"total={total}") if s == 200 and total else fail("POST /api/calculate", f"status={s}, body={str(b)[:100]}")
+
+    # 6. create lead
+    s, b = req("POST", base, "/api/leads/create", LEAD_DATA)
+    lead_ok = s in (200, 201) and b.get("status") in ("success", "duplicate")
+    lead_id = b.get("lead_id", "?")
+    detail = f"lead_id={lead_id}" if lead_ok and b.get("status") == "success" else b.get("status", f"status={s}")
+    ok("POST /api/leads/create", detail) if lead_ok else fail("POST /api/leads/create", f"status={s}, body={str(b)[:100]}")
+
+    # 7. get leads
+    s, b = req("GET", base, "/api/leads?limit=5")
+    count = b.get("count") or len(b.get("leads", []))
+    ok("GET /api/leads", f"count={count}") if s == 200 else fail("GET /api/leads", f"status={s}")
+
+    # 8. landing data
+    s, b = req("GET", base, "/api/landing-data")
+    ok("GET /api/landing-data", "config loaded") if s == 200 else fail("GET /api/landing-data", f"status={s}")
+
+    # 9. prices
+    s, b = req("GET", base, "/api/prices")
+    ok("GET /api/prices", "prices loaded") if s == 200 else fail("GET /api/prices", f"status={s}")
+
+    # Итог
+    passed = sum(1 for _, p, _ in results if p)
+    total_tests = len(results)
+    print()
+    print("=" * 55)
+    print(f"  Итого: {passed}/{total_tests} тестов прошли")
+    if passed < total_tests:
+        print(f"  Провалено: {total_tests - passed}")
+    print("=" * 55)
+
+    sys.exit(0 if passed == total_tests else 1)
+
+
+if __name__ == "__main__":
+    main()

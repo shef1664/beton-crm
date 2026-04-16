@@ -112,7 +112,10 @@ async def get_public_config():
     """Публичный конфиг для лендинга (без секретов)"""
     return {
         "status": "ok",
+        "api_url": settings.BACKEND_URL,
         "backend_url": settings.BACKEND_URL,
+        "phone": "8-903-916-40-40",
+        "company": "ТрансМикс",
         "services": {
             "amocrm": amocrm.is_available(),
             "telegram": notifier.is_available(),
