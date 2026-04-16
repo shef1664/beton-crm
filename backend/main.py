@@ -3,7 +3,7 @@ Backend - Интеграционное ядро системы продажи б
 amoCRM = центр системы, всё остальное = модули
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -98,6 +98,25 @@ async def root():
         "service": "Бетон Backend API",
         "version": "1.0.0",
         "amoCRM": "connected" if amocrm.is_available() else "not configured"
+    }
+
+
+@app.get("/ping")
+async def ping():
+    """Keep-alive endpoint для предотвращения засыпания Render free tier"""
+    return {"pong": True, "timestamp": datetime.now().isoformat()}
+
+
+@app.get("/api/config")
+async def get_public_config():
+    """Публичный конфиг для лендинга (без секретов)"""
+    return {
+        "status": "ok",
+        "backend_url": settings.BACKEND_URL,
+        "services": {
+            "amocrm": amocrm.is_available(),
+            "telegram": notifier.is_available(),
+        }
     }
 
 
@@ -209,12 +228,12 @@ async def calculate(calc_data: CalculateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Получение списка лидов (для админки)
+# Получение списка лидов
 @app.get("/api/leads")
 async def get_leads(status: Optional[str] = None, limit: int = 50):
-    """Получение списка лидов из amoCRM"""
+    """Получение списка лидов из SQLite (локальная БД)"""
     try:
-        leads = await amocrm.get_leads(status=status, limit=limit)
+        leads = baserow.get_leads(limit=limit)
         return {"status": "success", "leads": leads, "count": len(leads)}
     except Exception as e:
         logger.error(f"Ошибка получения лидов: {e}")
@@ -284,8 +303,19 @@ async def get_landing_data():
 
 
 @app.post("/api/landing-data/update")
-async def update_landing_data(new_data: dict):
-    """Обновить данные лендинга (только для админа)"""
+async def update_landing_data(
+    new_data: dict,
+    authorization: str = Header(None, alias="Authorization")
+):
+    """Обновить данные лендинга (только для админа с API ключом)"""
+    # Проверка авторизации
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Необходим API ключ")
+    
+    token = authorization.replace("Bearer ", "")
+    if token != settings.API_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Неверный API ключ")
+    
     try:
         with open(LANDING_CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(new_data, f, ensure_ascii=False, indent=2)

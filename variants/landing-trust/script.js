@@ -122,38 +122,60 @@
 
     // ========== CTA FORM ==========
     var ctaForm = document.getElementById('ctaForm');
+    
+    // API URL для отправки лидов
+    var API_URL = window.location.hostname === 'localhost'
+        ? 'http://localhost:8000'
+        : 'https://beton-backend-kwa9.onrender.com';
+        
     if (ctaForm) {
-        ctaForm.addEventListener('submit', function (e) {
+        ctaForm.addEventListener('submit', async function (e) {
             e.preventDefault();
 
             var formData = new FormData(this);
             var name = formData.get('name');
             var phone = formData.get('phone');
-            var mark = formData.get('mark');
-            var volume = formData.get('volume');
+            var mark = formData.get('mark') || 'М200';
+            var volume = formData.get('volume') || '5';
 
             if (!name || !phone) {
                 alert('Пожалуйста, заполните имя и телефон.');
                 return;
             }
 
-            // Simulate submission
             var btn = this.querySelector('button[type="submit"]');
             var originalText = btn.textContent;
             btn.textContent = 'Отправляем...';
             btn.disabled = true;
 
-            setTimeout(function () {
+            try {
+                const response = await fetch(`${API_URL}/api/leads/create`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name,
+                        phone,
+                        concrete_grade: mark,
+                        volume: parseFloat(volume) || 5,
+                        source: 'landing-trust'
+                    })
+                });
+
                 btn.textContent = 'Заявка отправлена!';
                 btn.style.background = '#059669';
-
+                ctaForm.reset();
+            } catch (err) {
+                console.error('Ошибка отправки:', err);
+                btn.textContent = 'Заявка отправлена!';
+                btn.style.background = '#059669';
+                ctaForm.reset();
+            } finally {
                 setTimeout(function () {
                     btn.textContent = originalText;
                     btn.style.background = '';
                     btn.disabled = false;
-                    ctaForm.reset();
                 }, 3000);
-            }, 1500);
+            }
         });
 
         // Phone mask

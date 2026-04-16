@@ -178,8 +178,13 @@ document.querySelector('[data-calc="area"]').addEventListener('click', () => {
 // ========== FORM SUBMISSION ==========
 const ctaForm = document.getElementById('cta-form');
 
+// API URL для отправки лидов
+const API_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : 'https://beton-backend-kwa9.onrender.com';
+
 if (ctaForm) {
-    ctaForm.addEventListener('submit', (e) => {
+    ctaForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const name = ctaForm.querySelector('[name="name"]').value.trim();
@@ -190,9 +195,25 @@ if (ctaForm) {
             return;
         }
 
-        // В реальном проекте здесь будет отправка на сервер
-        alert(`Спасибо, ${name}! Мы перезвоним вам на ${phone} в течение 15 минут.`);
-        ctaForm.reset();
+        // Отправка на API
+        try {
+            const response = await fetch(`${API_URL}/api/leads/create`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name,
+                    phone,
+                    source: 'landing-vedro'
+                })
+            });
+
+            alert(`Спасибо, ${name}! Мы перезвоним вам на ${phone} в течение 15 минут.`);
+            ctaForm.reset();
+        } catch (err) {
+            console.error('Ошибка отправки:', err);
+            alert(`Спасибо, ${name}! Мы свяжемся с вами.`);
+            ctaForm.reset();
+        }
     });
 }
 

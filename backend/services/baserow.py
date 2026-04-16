@@ -1,105 +1,146 @@
-"""Baserow интеграция - слой логирования и хранения"""
-import httpx
+"""
+Слой хранения данных — SQLite (замена Baserow).
+Интерфейс сохранён: main.py не требует изменений.
+"""
+import sqlite3
 import logging
-from typing import Dict
-from config import settings
+import json
+from datetime import datetime
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# На Render — персистентный диск /data, локально — рядом с backend/
+import os
+if os.getenv("RENDER"):
+    DB_PATH = Path("/data/leads.db")
+else:
+    DB_PATH = Path(__file__).resolve().parent.parent / "data" / "leads.db"
+
+
+def _get_conn() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _init_db():
+    """Создаёт таблицы если их нет."""
+    with _get_conn() as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS leads (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                name             TEXT,
+                phone            TEXT,
+                source           TEXT,
+                concrete_grade   TEXT,
+                volume           REAL,
+                address          TEXT,
+                calculated_amount REAL,
+                lead_id          INTEGER,
+                created_at       TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS calculations (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                concrete_grade TEXT,
+                volume         REAL,
+                distance       REAL,
+                total_amount   REAL,
+                timestamp      TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS logs (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                action    TEXT,
+                error     TEXT,
+                data      TEXT,
+                timestamp TEXT
+            );
+        """)
+    logger.info(f"✅ SQLite база данных: {DB_PATH}")
+
+
+# Инициализируем при импорте
+_init_db()
+
+
 class BaserowService:
-    def __init__(self):
-        self.base_url = settings.BASEROW_URL
-        self.token = settings.BASEROW_TOKEN
-        self.leads_table = settings.BASEROW_LEADS_TABLE_ID
-        self.logs_table = settings.BASEROW_LOGS_TABLE_ID
-        self.is_configured = bool(self.token)
-    
+    """SQLite-реализация с тем же интерфейсом что был у Baserow."""
+
     def is_available(self) -> bool:
-        return self.is_configured
-    
-    async def _get_headers(self) -> Dict[str, str]:
-        return {
-            "Authorization": f"Token {self.token}",
-            "Content-Type": "application/json"
-        }
-    
-    async def log_lead(self, lead_data: Dict):
-        """Логирование лида в Baserow"""
-        if not self.is_configured:
-            logger.warning("Baserow не настроен - лид не сохранён")
-            return
-        
+        return True
+
+    async def log_lead(self, lead_data: dict):
+        """Сохраняет заявку в таблицу leads."""
         try:
-            data = {
-                "name": lead_data.get("name"),
-                "phone": lead_data.get("phone"),
-                "source": lead_data.get("source"),
-                "concrete_grade": lead_data.get("concrete_grade"),
-                "volume": lead_data.get("volume"),
-                "address": lead_data.get("address"),
-                "calculated_amount": lead_data.get("calculated_amount"),
-                "created_at": lead_data.get("created_at"),
-                "lead_id": lead_data.get("lead_id")
-            }
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{self.base_url}/api/database/rows/table/{self.leads_table}/",
-                    headers=await self._get_headers(),
-                    json=data
+            with _get_conn() as conn:
+                conn.execute(
+                    """INSERT INTO leads
+                       (name, phone, source, concrete_grade, volume,
+                        address, calculated_amount, lead_id, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        lead_data.get("name"),
+                        lead_data.get("phone"),
+                        lead_data.get("source"),
+                        lead_data.get("concrete_grade"),
+                        lead_data.get("volume"),
+                        lead_data.get("address"),
+                        lead_data.get("calculated_amount"),
+                        lead_data.get("lead_id"),
+                        lead_data.get("created_at") or datetime.now().isoformat(),
+                    ),
                 )
-                
-                if response.status_code == 200:
-                    logger.info(f"✅ Лид сохранён в Baserow")
-                else:
-                    logger.error(f"Ошибка сохранения в Baserow: {response.text}")
-                    
+            logger.info("✅ Заявка сохранена в SQLite")
         except Exception as e:
-            logger.error(f"Ошибка логирования лида: {e}")
-    
-    async def log_calculation(self, calc_data: Dict, result: Dict):
-        """Логирование расчёта"""
-        if not self.is_configured:
-            return
-        
+            logger.error(f"❌ Ошибка сохранения в SQLite: {e}")
+
+    async def log_calculation(self, calc_data: dict, result: dict):
+        """Сохраняет расчёт в таблицу calculations."""
         try:
-            data = {
-                "concrete_grade": calc_data.get("concrete_grade"),
-                "volume": calc_data.get("volume"),
-                "distance": calc_data.get("distance"),
-                "total_amount": result.get("total"),
-                "timestamp": result.get("timestamp")
-            }
-            
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{self.base_url}/api/database/rows/table/{self.logs_table}/",
-                    headers=await self._get_headers(),
-                    json=data
+            with _get_conn() as conn:
+                conn.execute(
+                    """INSERT INTO calculations
+                       (concrete_grade, volume, distance, total_amount, timestamp)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (
+                        calc_data.get("concrete_grade"),
+                        calc_data.get("volume"),
+                        calc_data.get("distance"),
+                        result.get("total"),
+                        datetime.now().isoformat(),
+                    ),
                 )
-                
         except Exception as e:
-            logger.error(f"Ошибка логирования расчёта: {e}")
-    
-    async def log_error(self, action: str, error: str, data: Dict):
-        """Логирование ошибки"""
-        if not self.is_configured:
-            return
-        
+            logger.error(f"❌ Ошибка сохранения расчёта: {e}")
+
+    async def log_error(self, action: str, error: str, data: dict):
+        """Сохраняет ошибку в таблицу logs."""
         try:
-            error_data = {
-                "action": action,
-                "error": error,
-                "data": str(data)[:1000],  # Ограничение длины
-                "timestamp": data.get("created_at", "")
-            }
-            
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{self.base_url}/api/database/rows/table/{self.logs_table}/",
-                    headers=await self._get_headers(),
-                    json=error_data
+            with _get_conn() as conn:
+                conn.execute(
+                    """INSERT INTO logs (action, error, data, timestamp)
+                       VALUES (?, ?, ?, ?)""",
+                    (
+                        action,
+                        error,
+                        json.dumps(data, ensure_ascii=False)[:2000],
+                        datetime.now().isoformat(),
+                    ),
                 )
-                
         except Exception as e:
-            logger.error(f"Ошибка логирования ошибки: {e}")
+            logger.error(f"❌ Ошибка записи лога: {e}")
+
+    def get_leads(self, limit: int = 100) -> list:
+        """Возвращает последние заявки (для отладки)."""
+        try:
+            with _get_conn() as conn:
+                rows = conn.execute(
+                    "SELECT * FROM leads ORDER BY id DESC LIMIT ?", (limit,)
+                ).fetchall()
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"❌ Ошибка чтения заявок: {e}")
+            return []

@@ -1,8 +1,11 @@
 """Конфигурация backend"""
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class Settings:
     # amoCRM
@@ -13,10 +16,16 @@ class Settings:
     AMOCRM_ACCESS_TOKEN: str = os.getenv("AMOCRM_ACCESS_TOKEN", "")
     AMOCRM_PIPELINE_ID: int = int(os.getenv("AMOCRM_PIPELINE_ID", "0"))
     
-    # Telegram
-    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "8724634676:AAHJzHv0L_R_82wGlA6ChTKfZ0h6TuVmDco")
-    TELEGRAM_ADMIN_ID: int = int(os.getenv("TELEGRAM_ADMIN_ID", "150420"))
+    # Backend URL (для Telegram webhook и внешних сервисов)
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
     
+    # API ключ для админских операций (обновление лендинга и т.д.)
+    API_SECRET_KEY: str = os.getenv("API_SECRET_KEY", "change-me-in-production")
+
+    # Telegram
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    TELEGRAM_ADMIN_ID: int = int(os.getenv("TELEGRAM_ADMIN_ID", "150420"))
+
     # Baserow
     BASEROW_URL: str = os.getenv("BASEROW_URL", "https://api.baserow.io")
     BASEROW_TOKEN: str = os.getenv("BASEROW_TOKEN", "")
@@ -51,3 +60,14 @@ class Settings:
     }
 
 settings = Settings()
+
+# Предупреждения о незаполненных настройках
+if not settings.AMOCRM_ACCESS_TOKEN:
+    logger.warning("⚠️  AMOCRM_ACCESS_TOKEN не задан — заявки не будут попадать в amoCRM")
+if not settings.TELEGRAM_BOT_TOKEN:
+    logger.warning("⚠️  TELEGRAM_BOT_TOKEN не задан — уведомления в Telegram отключены")
+if not settings.BASEROW_TOKEN:
+    logger.warning("⚠️  BASEROW_TOKEN не задан — логирование в Baserow отключено")
+if settings.API_SECRET_KEY == "change-me-in-production" or settings.API_SECRET_KEY == "your-secret-key-change-this":
+    logger.warning("⚠️  API_SECRET_KEY не изменён! Сгенерируйте ключ: python -c \"import secrets; print(secrets.token_urlsafe(32))\"")
+

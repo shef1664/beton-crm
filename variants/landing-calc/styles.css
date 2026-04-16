@@ -1070,3 +1070,58 @@ body {
         text-align: center;
     }
 }
+
+/* ============ ФОРМА — ОБРАТНАЯ СВЯЗЬ ============ */
+
+/* Ошибка у поля */
+.input-error {
+    border-color: var(--red) !important;
+    background-color: #fff5f5 !important;
+    animation: field-shake 0.3s ease-in-out;
+}
+
+@keyframes field-shake {
+    0%, 100% { transform: translateX(0); }
+    25%       { transform: translateX(-4px); }
+    75%       { transform: translateX(4px); }
+}
+
+.field-error-msg {
+    color: var(--red);
+    font-size: 12px;
+    margin-top: 4px;
+    padding-left: 2px;
+}
+
+/* Сообщения под формой */
+.form-msg {
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    animation: msg-slide-down 0.3s ease;
+}
+
+@keyframes msg-slide-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.form-msg--success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.form-msg--error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+/* Кнопка во время отправки */
+.cta-form button[disabled] {
+    opacity: 0.65;
+    cursor: not-allowed;
+}

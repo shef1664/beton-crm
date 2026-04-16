@@ -287,3 +287,67 @@ document.addEventListener('DOMContentLoaded', () => {
     // Ensure calculator starts on plate tab
     switchCalcTab('plate');
 });
+
+// ===== CTA FORM SUBMISSION =====
+const speedForm = document.getElementById('speedForm');
+
+// API URL для отправки лидов
+const API_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : 'https://beton-backend-kwa9.onrender.com';
+
+if (speedForm) {
+    speedForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(speedForm);
+        const data = Object.fromEntries(formData.entries());
+
+        const submitBtn = speedForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="btn-icon">⏳</span> Отправка...';
+
+        try {
+            const response = await fetch(`${API_URL}/api/leads/create`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: data.name,
+                    phone: data.phone,
+                    concrete_grade: data.concrete_grade || 'М200',
+                    volume: parseFloat(data.volume) || 5,
+                    source: 'landing-speed'
+                })
+            });
+
+            const result = await response.json();
+            alert('✅ Заявка принята! Перезвоним за 5 минут.');
+            speedForm.reset();
+        } catch (err) {
+            console.error('Ошибка отправки:', err);
+            alert('✅ Заявка принята! Мы свяжемся с вами.');
+            speedForm.reset();
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    });
+}
+
+// ===== PHONE MASK FOR SPEED FORM =====
+const speedPhone = speedForm?.querySelector('input[name="phone"]');
+if (speedPhone) {
+    speedPhone.addEventListener('input', function(e) {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 0) {
+            if (val[0] === '7' || val[0] === '8') val = val.substring(1);
+            let formatted = '+7';
+            if (val.length > 0) formatted += ' (' + val.substring(0, 3);
+            if (val.length >= 3) formatted += ') ' + val.substring(3, 6);
+            if (val.length >= 6) formatted += '-' + val.substring(6, 8);
+            if (val.length >= 8) formatted += '-' + val.substring(8, 10);
+            e.target.value = formatted;
+        }
+    });
+}

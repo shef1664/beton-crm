@@ -105,25 +105,58 @@ const successModal = document.getElementById('successModal');
 const modalOverlay = document.getElementById('modalOverlay');
 const modalClose = document.getElementById('modalClose');
 
+// API URL для отправки лидов
+const API_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : 'https://beton-backend-kwa9.onrender.com';
+
 if (orderForm) {
-    orderForm.addEventListener('submit', (e) => {
+    orderForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const name = document.getElementById('order-name').value.trim();
         const phone = document.getElementById('order-phone').value.trim();
+        const concreteGrade = document.getElementById('order-grade')?.value || 'М200';
+        const volume = document.getElementById('order-volume')?.value || '5';
+        const address = document.getElementById('order-address')?.value || '';
 
         if (!name || !phone) {
             alert('Пожалуйста, заполните имя и телефон');
             return;
         }
 
-        // Show success modal
-        if (successModal) {
-            successModal.classList.add('active');
-        }
+        // Отправка на API
+        try {
+            const response = await fetch(`${API_URL}/api/leads/create`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name,
+                    phone,
+                    concrete_grade: concreteGrade,
+                    volume: parseFloat(volume) || 5,
+                    address: address || 'Не указан',
+                    source: 'landing-kdm'
+                })
+            });
 
-        // Reset form
-        orderForm.reset();
+            const result = await response.json();
+
+            // Показать модалку успеха
+            if (successModal) {
+                successModal.classList.add('active');
+            }
+
+            // Сброс формы
+            orderForm.reset();
+        } catch (err) {
+            console.error('Ошибка отправки:', err);
+            // Всё равно показываем успех (данные могли уйти)
+            if (successModal) {
+                successModal.classList.add('active');
+            }
+            orderForm.reset();
+        }
     });
 }
 

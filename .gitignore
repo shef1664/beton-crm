@@ -1,9 +1,46 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
-.env
-node_modules/
-.DS_Store
-*.log
+*.pyd
+.Python
 venv/
 env/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Секреты — НИКОГДА не коммитить
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Логи
+*.log
+logs/
+
+# Node
+node_modules/
+
+# Временные файлы
+temporary-screenshots/
+*.tmp
+
+# SQLite
+*.db
+backend/data/

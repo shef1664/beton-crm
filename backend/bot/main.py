@@ -1,7 +1,16 @@
 """Telegram бот @otdprod - сбор заявок на бетон"""
 import logging
+import asyncio
+import httpx
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ConversationHandler,
+    filters,
+    ContextTypes
+)
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -166,23 +175,32 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return 0
 
 def create_bot() -> Application:
-    """Создание бота"""
+    """Создание бота с ConversationHandler"""
     if not settings.TELEGRAM_BOT_TOKEN:
         logger.warning("Токен бота не задан")
         return None
-    
+
     # Создание приложения
     app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
-    
-    # Добавление обработчиков
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("cancel", cancel))
-    
-    # Обработчики сообщений
-    app.add_handler(MessageHandler(filters.Regex("^(М100|М150|М200|М250|М300|М350|М400|М450)$"), get_grade))
-    app.add_handler(MessageHandler(filters.Regex("^(Сегодня|Завтра|На неделе|Не срочно)$"), get_date))
-    app.add_handler(MessageHandler(filters.Regex("^(Наличные|Безналичный расчёт|Перевод на карту)$"), get_payment))
-    
+
+    # ConversationHandler для управления диалогом
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            AWAITING_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+            AWAITING_VOLUME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_volume)],
+            AWAITING_GRADE: [MessageHandler(filters.Regex("^(М100|М150|М200|М250|М300|М350|М400|М450)$"), get_grade)],
+            AWAITING_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_address)],
+            AWAITING_DATE: [MessageHandler(filters.Regex("^(Сегодня|Завтра|На неделе|Не срочно)$"), get_date)],
+            AWAITING_URGENCY: [MessageHandler(filters.Regex("^(Сегодня|Завтра|На неделе|Не срочно)$"), get_date)],
+            AWAITING_PAYMENT: [MessageHandler(filters.Regex("^(Наличные|Безналичный расчёт|Перевод на карту)$"), get_payment)],
+            AWAITING_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_phone)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+    app.add_handler(conv_handler)
+
     return app
 
 async def start_bot():

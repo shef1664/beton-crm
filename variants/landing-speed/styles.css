@@ -1819,3 +1819,57 @@ a {
         font-size: 0.95rem !important;
     }
 }
+
+/* ===== CTA FORM ===== */
+.cta-form {
+    margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.cta-form input,
+.cta-form select {
+    padding: 14px 18px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+.cta-form input::placeholder {
+    color: rgba(255,255,255,0.6);
+}
+
+.cta-form input:focus,
+.cta-form select:focus {
+    outline: none;
+    border-color: var(--accent-yellow);
+    background: rgba(255,255,255,0.15);
+}
+
+.cta-form select {
+    cursor: pointer;
+}
+
+.cta-form select option {
+    background: var(--bg-secondary);
+    color: #fff;
+}
+
+@media (max-width: 600px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}

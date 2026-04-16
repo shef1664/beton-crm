@@ -293,24 +293,27 @@ function renderLanding(data) {
 const form = document.getElementById('leadForm');
 const submitBtn = document.getElementById('submitBtn');
 
+// Сохраняем оригинальный текст кнопки
+let originalBtnText = submitBtn.textContent;
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   submitBtn.disabled = true;
   submitBtn.textContent = '⏳ Отправка...';
-  
+
   const formData = new FormData(form);
   const data = Object.fromEntries(formData.entries());
-  
+
   try {
     const response = await fetch(`${API_URL}/api/leads/create`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(data)
     });
-    
+
     const result = await response.json();
-    
+
     if (result.status === 'success' || result.status === 'duplicate') {
       document.getElementById('successModal').classList.add('active');
       form.reset();
@@ -322,7 +325,7 @@ form.addEventListener('submit', async (e) => {
     alert('Ошибка соединения. Попробуйте позже или позвоните нам.');
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = '📩 ' + document.getElementById('submitBtn').dataset.originalText;
+    submitBtn.textContent = originalBtnText;
   }
 });
 

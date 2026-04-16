@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: beton-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: RENDER
+        value: "true"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_ADMIN_ID
+        sync: false
+      - key: API_SECRET_KEY
+        generateValue: true
+      - key: AMOCRM_DOMAIN
+        sync: false
+      - key: AMOCRM_ACCESS_TOKEN
+        sync: false
+      - key: AMOCRM_PIPELINE_ID
+        value: "10818570"
+      - key: BACKEND_URL
+        sync: false
+    disk:
+      name: sqlite-data
+      mountPath: /data
+      sizeGB: 1

@@ -119,15 +119,162 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---- CTA form submission ----
     const ctaForm = document.getElementById('cta-form');
+
+    // API URL для отправки лидов
+    const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000'
+        : 'https://beton-backend-kwa9.onrender.com';
+
+    // ---- Телефонная маска ----
+    const phoneInput = ctaForm ? ctaForm.querySelector('input[name="phone"]') : null;
+    if (phoneInput) {
+        phoneInput.addEventListener('input', (e) => {
+            let val = e.target.value.replace(/[^\d+]/g, '');
+            if (val.length === 1 && val !== '+') {
+                if (val === '8') val = '+7';
+                else if (val === '7') val = '+7';
+                else val = '+7' + val;
+            }
+            e.target.value = val;
+        });
+        phoneInput.placeholder = '+7 999 123-45-67';
+    }
+
+    // Убирать ошибку при вводе
     if (ctaForm) {
-        ctaForm.addEventListener('submit', (e) => {
+        ctaForm.querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('input', () => clearFieldError(el));
+            el.addEventListener('change', () => clearFieldError(el));
+        });
+    }
+
+    // ---- Валидация ----
+    function validatePhone(phone) {
+        const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+        return /^(\+7|8|7)\d{10}$/.test(cleaned);
+    }
+
+    function validateName(name) {
+        const t = name.trim();
+        if (t.length < 2) return 'Имя слишком короткое';
+        if (t.length > 50) return 'Имя слишком длинное';
+        if (!/^[а-яА-ЯёЁa-zA-Z\s\-]+$/.test(t)) return 'Только буквы и дефис';
+        return null;
+    }
+
+    function formatPhone(phone) {
+        const d = phone.replace(/\D/g, '');
+        if (d.startsWith('8') && d.length === 11) return '+7' + d.slice(1);
+        if (d.startsWith('7') && d.length === 11) return '+' + d;
+        if (d.length === 10) return '+7' + d;
+        return phone;
+    }
+
+    function showFieldError(input, message) {
+        clearFieldError(input);
+        input.classList.add('input-error');
+        const div = document.createElement('div');
+        div.className = 'field-error-msg';
+        div.textContent = message;
+        input.parentNode.insertBefore(div, input.nextSibling);
+    }
+
+    function clearFieldError(input) {
+        input.classList.remove('input-error');
+        const msg = input.parentNode.querySelector('.field-error-msg');
+        if (msg) msg.remove();
+    }
+
+    function showFormMessage(form, type, text) {
+        removeFormMessages(form);
+        const div = document.createElement('div');
+        div.className = type === 'success' ? 'form-msg form-msg--success' : 'form-msg form-msg--error';
+        div.textContent = text;
+        form.appendChild(div);
+        div.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+            div.style.opacity = '0';
+            div.style.transition = 'opacity 0.5s';
+            setTimeout(() => div.remove(), 500);
+        }, 10000);
+    }
+
+    function removeFormMessages(form) {
+        form.querySelectorAll('.form-msg').forEach(el => el.remove());
+    }
+
+    if (ctaForm) {
+        ctaForm.setAttribute('novalidate', '');
+        ctaForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData(ctaForm);
-            const name = formData.get('name');
-            const phone = formData.get('phone');
-            const grade = formData.get('grade');
-            alert('Спасибо, ' + name + '! Мы перезвоним вам в ближайшее время.\n\nВаш заказ:\nМарка: ' + (grade || 'не выбрана') + '\nТелефон: ' + phone);
-            ctaForm.reset();
+
+            const nameInput  = ctaForm.querySelector('input[name="name"]');
+            const phoneInput = ctaForm.querySelector('input[name="phone"]');
+            const gradeInput = ctaForm.querySelector('select[name="grade"]');
+
+            const name  = nameInput  ? nameInput.value  : '';
+            const phone = phoneInput ? phoneInput.value : '';
+            const grade = gradeInput ? gradeInput.value : 'М200';
+
+            // -- Валидация --
+            let hasError = false;
+
+            const nameError = validateName(name);
+            if (nameError) {
+                showFieldError(nameInput, nameError);
+                hasError = true;
+            }
+
+            if (!phone || !validatePhone(phone)) {
+                showFieldError(phoneInput, 'Введите корректный номер (+7 999 123-45-67)');
+                hasError = true;
+            }
+
+            if (hasError) {
+                ctaForm.querySelector('.input-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            // -- Отправка --
+            removeFormMessages(ctaForm);
+            const submitBtn = ctaForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Отправка...';
+
+            const payload = {
+                name: name.trim(),
+                phone: formatPhone(phone),
+                concrete_grade: grade || 'М200',
+                volume: calcState.volume > 0 ? parseFloat(calcState.volume.toFixed(2)) : 5,
+                calculated_amount: calcState.total > 0 ? calcState.total : null,
+                source: 'landing-calc'
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/leads/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showFormMessage(ctaForm, 'success',
+                        '✅ Заявка принята! Перезвоним за 5 минут.');
+                    ctaForm.reset();
+                } else {
+                    const err = await response.json().catch(() => ({}));
+                    showFormMessage(ctaForm, 'error',
+                        '❌ ' + (err.detail || 'Ошибка сервера') + '. Позвоните: 8-903-916-40-40');
+                }
+            } catch (err) {
+                console.error('Ошибка отправки:', err);
+                showFormMessage(ctaForm, 'error',
+                    '❌ Нет связи с сервером. Позвоните: 8-903-916-40-40');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
         });
     }
 

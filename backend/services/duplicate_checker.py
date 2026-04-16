@@ -1,5 +1,6 @@
 """Проверка дублей по телефону"""
 import logging
+import httpx
 from services.amocrm import AmoCRMService
 
 logger = logging.getLogger(__name__)
@@ -7,18 +8,17 @@ logger = logging.getLogger(__name__)
 class DuplicateChecker:
     def __init__(self, amocrm: AmoCRMService):
         self.amocrm = amocrm
-    
+
     async def check(self, phone: str) -> int:
         """Проверка дубля по телефону. Возвращает ID существующего лида или 0"""
         if not self.amocrm.is_available():
             return 0
-        
+
         try:
             # Поиск по контактам
-            async import httpx
             base_url = self.amocrm.base_url
             headers = await self.amocrm._get_headers()
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{base_url}/contacts",
