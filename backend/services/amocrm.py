@@ -80,7 +80,8 @@ class AmoCRMService:
                 json=lead_data_amo
             )
             lead_response.raise_for_status()
-            lead_id = lead_response.json()["_embedded"]["items"][0]["id"]
+            embedded = lead_response.json()["_embedded"]
+            lead_id = (embedded.get("leads") or embedded.get("items"))[0]["id"]
             
             logger.info(f"✅ Лид создан в amoCRM: {lead_id}")
             return lead_id
