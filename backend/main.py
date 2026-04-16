@@ -152,11 +152,12 @@ async def create_lead(lead_data: LeadCreate):
         
         # Расчёт стоимости если не указан
         if not lead_data.calculated_amount and lead_data.concrete_grade and lead_data.volume:
-            lead_data.calculated_amount = calculator.calculate(
+            calc_result = calculator.calculate(
                 lead_data.concrete_grade,
                 lead_data.volume,
                 lead_data.distance or 0
             )
+            lead_data.calculated_amount = calc_result["total"]
         
         # Создание лида в amoCRM
         lead_id = await amocrm.create_lead(lead_data.dict())
