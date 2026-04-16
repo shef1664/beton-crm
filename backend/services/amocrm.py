@@ -82,6 +82,8 @@ class AmoCRMService:
                 headers=await self._get_headers(),
                 json=lead_data_amo
             )
+            if lead_response.status_code not in (200, 201):
+                logger.error(f"amoCRM leads 400: {lead_response.text[:500]}")
             lead_response.raise_for_status()
             embedded = lead_response.json()["_embedded"]
             lead_id = (embedded.get("leads") or embedded.get("items"))[0]["id"]
