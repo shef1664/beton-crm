@@ -8,7 +8,6 @@ if (navToggle && mobileMenu) {
         navToggle.classList.toggle('active');
     });
 
-    // Close menu on link click
     mobileMenu.querySelectorAll('a').forEach(link => {
         link.addEventListener('click', () => {
             mobileMenu.classList.remove('active');
@@ -24,74 +23,55 @@ const calcBtn = document.getElementById('calcBtn');
 const calcResult = document.getElementById('calcResult');
 const calcVolume = document.getElementById('calcVolume');
 const calcPrice = document.getElementById('calcPrice');
-
 const PRICE_PER_CUBIC = 5800;
 
-// Tab switching
 calcTabs.forEach(tab => {
     tab.addEventListener('click', () => {
         const type = tab.dataset.type;
-
-        // Update tabs
         calcTabs.forEach(t => t.classList.remove('calc__tab--active'));
         tab.classList.add('calc__tab--active');
-
-        // Update panels
         calcPanels.forEach(panel => panel.classList.remove('calc__panel--active'));
-        document.getElementById(`panel-${type}`).classList.add('calc__panel--active');
-
-        // Hide result when switching tabs
-        if (calcResult) {
-            calcResult.style.display = 'none';
-        }
+        document.getElementById(`panel-${type}`)?.classList.add('calc__panel--active');
+        if (calcResult) calcResult.style.display = 'none';
     });
 });
 
-// Calculate volume
 function calculateVolume() {
     const activePanel = document.querySelector('.calc__panel--active');
-    if (!activePanel) return;
+    if (!activePanel) return 0;
 
     const panelId = activePanel.id;
-    let volume = 0;
-
     if (panelId === 'panel-slab') {
         const length = parseFloat(document.getElementById('slab-length').value) || 0;
         const width = parseFloat(document.getElementById('slab-width').value) || 0;
         const height = parseFloat(document.getElementById('slab-height').value) || 0;
-        volume = length * width * height;
-    } else if (panelId === 'panel-strip') {
+        return Math.max(0, length * width * height);
+    }
+    if (panelId === 'panel-strip') {
         const perimeter = parseFloat(document.getElementById('strip-perimeter').value) || 0;
         const width = parseFloat(document.getElementById('strip-width').value) || 0;
         const height = parseFloat(document.getElementById('strip-height').value) || 0;
-        volume = perimeter * width * height;
-    } else if (panelId === 'panel-cylinder') {
+        return Math.max(0, perimeter * width * height);
+    }
+    if (panelId === 'panel-cylinder') {
         const radius = parseFloat(document.getElementById('cyl-radius').value) || 0;
         const height = parseFloat(document.getElementById('cyl-height').value) || 0;
-        volume = Math.PI * Math.pow(radius, 2) * height;
+        return Math.max(0, Math.PI * Math.pow(radius, 2) * height);
     }
-
-    return Math.max(0, volume);
+    return 0;
 }
 
 if (calcBtn) {
     calcBtn.addEventListener('click', () => {
         const volume = calculateVolume();
-
         if (volume <= 0) {
             alert('Пожалуйста, заполните все поля корректными значениями');
             return;
         }
 
         const price = Math.round(volume * PRICE_PER_CUBIC);
-
-        // Display result
-        if (calcVolume) {
-            calcVolume.textContent = volume.toFixed(2);
-        }
-        if (calcPrice) {
-            calcPrice.textContent = price.toLocaleString('ru-RU');
-        }
+        if (calcVolume) calcVolume.textContent = volume.toFixed(2);
+        if (calcPrice) calcPrice.textContent = price.toLocaleString('ru-RU');
         if (calcResult) {
             calcResult.style.display = 'block';
             calcResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -99,16 +79,35 @@ if (calcBtn) {
     });
 }
 
-// ===== Order Form =====
+// ===== Lead Form =====
 const orderForm = document.getElementById('orderForm');
 const successModal = document.getElementById('successModal');
 const modalOverlay = document.getElementById('modalOverlay');
 const modalClose = document.getElementById('modalClose');
 
-// API URL для отправки лидов
-const API_URL = window.location.hostname === 'localhost'
+let API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:8000'
     : 'https://beton-backend-kwa9.onrender.com';
+
+async function loadConfig() {
+    try {
+        const response = await fetch(`${API_URL}/api/config`);
+        if (!response.ok) return;
+        const config = await response.json();
+        if (config.api_url) API_URL = config.api_url;
+    } catch (_) {}
+}
+
+function normalizePhone(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.length === 11 && digits.startsWith('8')) return '+7' + digits.slice(1);
+    if (digits.length === 11 && digits.startsWith('7')) return '+' + digits;
+    if (digits.length === 10) return '+7' + digits;
+    return phone;
+}
+
+loadConfig();
 
 if (orderForm) {
     orderForm.addEventListener('submit', async (e) => {
@@ -125,14 +124,13 @@ if (orderForm) {
             return;
         }
 
-        // Отправка на API
         try {
             const response = await fetch(`${API_URL}/api/leads/create`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name,
-                    phone,
+                    phone: normalizePhone(phone),
                     concrete_grade: concreteGrade,
                     volume: parseFloat(volume) || 5,
                     address: address || 'Не указан',
@@ -140,41 +138,26 @@ if (orderForm) {
                 })
             });
 
-            const result = await response.json();
-
-            // Показать модалку успеха
-            if (successModal) {
-                successModal.classList.add('active');
+            const result = await response.json().catch(() => ({}));
+            if (response.ok && (result.status === 'success' || result.status === 'duplicate')) {
+                if (successModal) successModal.classList.add('active');
+                orderForm.reset();
+            } else {
+                alert('Ошибка: ' + (result.message || result.detail || 'Не удалось отправить заявку'));
             }
-
-            // Сброс формы
-            orderForm.reset();
         } catch (err) {
             console.error('Ошибка отправки:', err);
-            // Всё равно показываем успех (данные могли уйти)
-            if (successModal) {
-                successModal.classList.add('active');
-            }
-            orderForm.reset();
+            alert('Ошибка соединения. Попробуйте позже или позвоните нам.');
         }
     });
 }
 
-// Close modal
 if (modalOverlay) {
-    modalOverlay.addEventListener('click', () => {
-        if (successModal) {
-            successModal.classList.remove('active');
-        }
-    });
+    modalOverlay.addEventListener('click', () => successModal?.classList.remove('active'));
 }
 
 if (modalClose) {
-    modalClose.addEventListener('click', () => {
-        if (successModal) {
-            successModal.classList.remove('active');
-        }
-    });
+    modalClose.addEventListener('click', () => successModal?.classList.remove('active'));
 }
 
 // ===== Phone Input Mask =====
@@ -183,34 +166,19 @@ const phoneInput = document.getElementById('order-phone');
 if (phoneInput) {
     phoneInput.addEventListener('input', (e) => {
         let value = e.target.value.replace(/\D/g, '');
-
         if (value.length === 0) {
             e.target.value = '';
             return;
         }
 
-        // Handle Russian numbers
-        if (value[0] === '8') {
-            value = '7' + value.slice(1);
-        }
-        if (value[0] !== '7') {
-            value = '7' + value;
-        }
+        if (value[0] === '8') value = '7' + value.slice(1);
+        if (value[0] !== '7') value = '7' + value;
 
         let formatted = '+7';
-        if (value.length > 1) {
-            formatted += ' (' + value.slice(1, 4);
-        }
-        if (value.length > 4) {
-            formatted += ') ' + value.slice(4, 7);
-        }
-        if (value.length > 7) {
-            formatted += '-' + value.slice(7, 9);
-        }
-        if (value.length > 9) {
-            formatted += '-' + value.slice(9, 11);
-        }
-
+        if (value.length > 1) formatted += ' (' + value.slice(1, 4);
+        if (value.length > 4) formatted += ') ' + value.slice(4, 7);
+        if (value.length > 7) formatted += '-' + value.slice(7, 9);
+        if (value.length > 9) formatted += '-' + value.slice(9, 11);
         e.target.value = formatted;
     });
 }
@@ -218,12 +186,10 @@ if (phoneInput) {
 // ===== Animated Counter for Trust Section =====
 function animateCounters() {
     const statNums = document.querySelectorAll('.trust__stat-num[data-target]');
-
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
-                const target = parseInt(entry.target.dataset.target);
-                animateNumber(entry.target, target);
+                animateNumber(entry.target, parseInt(entry.target.dataset.target, 10));
                 observer.unobserve(entry.target);
             }
         });
@@ -247,10 +213,8 @@ function animateNumber(element, target) {
     }, 16);
 }
 
-// Initialize counters
 animateCounters();
 
-// ===== Smooth Scroll for Anchor Links =====
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         const targetId = this.getAttribute('href');
@@ -259,43 +223,7 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         const targetElement = document.querySelector(targetId);
         if (targetElement) {
             e.preventDefault();
-            const navHeight = document.querySelector('.nav')?.offsetHeight || 70;
-            const targetPosition = targetElement.getBoundingClientRect().top + window.scrollY - navHeight;
-
-            window.scrollTo({
-                top: targetPosition,
-                behavior: 'smooth'
-            });
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     });
 });
-
-// ===== Navbar Background on Scroll =====
-const nav = document.querySelector('.nav');
-
-if (nav) {
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 50) {
-            nav.style.background = 'rgba(10, 10, 10, 0.95)';
-        } else {
-            nav.style.background = 'rgba(10, 10, 10, 0.9)';
-        }
-    });
-}
-
-// ===== Countdown Timer (24 hours from now) =====
-function updateTimer() {
-    const timerHours = document.getElementById('timer-hours');
-    if (!timerHours) return;
-
-    // Get hours remaining until end of today
-    const now = new Date();
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
-    const hoursRemaining = Math.ceil((endOfDay - now) / (1000 * 60 * 60));
-
-    timerHours.textContent = Math.max(0, hoursRemaining);
-}
-
-updateTimer();
-setInterval(updateTimer, 60000);

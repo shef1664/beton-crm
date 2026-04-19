@@ -3,7 +3,6 @@
 
     const PRICE_PER_CUBIC = 6200;
 
-    // ========== MOBILE MENU ==========
     const mobileBtn = document.querySelector('.mobile-menu-btn');
     const navMobile = document.getElementById('navMobile');
 
@@ -33,7 +32,6 @@
         });
     }
 
-    // ========== SMOOTH SCROLL ==========
     document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
         anchor.addEventListener('click', function (e) {
             var targetId = this.getAttribute('href');
@@ -44,15 +42,11 @@
                 var headerOffset = 70;
                 var elementPosition = target.getBoundingClientRect().top;
                 var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                window.scrollTo({
-                    top: offsetPosition,
-                    behavior: 'smooth'
-                });
+                window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
             }
         });
     });
 
-    // ========== CALCULATOR ==========
     var tabs = document.querySelectorAll('.calc-tab');
     var forms = document.querySelectorAll('.calc-form');
     var calcBtns = document.querySelectorAll('.calc-btn');
@@ -60,25 +54,17 @@
     var resultVolume = document.getElementById('result-volume');
     var resultPrice = document.getElementById('result-price');
 
-    // Tab switching
     tabs.forEach(function (tab) {
         tab.addEventListener('click', function () {
             var tabName = this.getAttribute('data-tab');
-
             tabs.forEach(function (t) { t.classList.remove('active'); });
             forms.forEach(function (f) { f.classList.remove('active'); });
-
             this.classList.add('active');
-            document.getElementById('calc-' + tabName).classList.add('active');
-
-            // Hide previous result when switching tabs
-            if (calcResult) {
-                calcResult.style.display = 'none';
-            }
+            document.getElementById('calc-' + tabName)?.classList.add('active');
+            if (calcResult) calcResult.style.display = 'none';
         });
     });
 
-    // Calculation logic
     calcBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
             var type = this.getAttribute('data-type');
@@ -106,13 +92,8 @@
             }
 
             var cost = Math.round(volume * PRICE_PER_CUBIC);
-
-            if (resultVolume) {
-                resultVolume.textContent = volume.toFixed(2) + ' м³';
-            }
-            if (resultPrice) {
-                resultPrice.textContent = cost.toLocaleString('ru-RU') + ' ₽';
-            }
+            if (resultVolume) resultVolume.textContent = volume.toFixed(2) + ' м³';
+            if (resultPrice) resultPrice.textContent = cost.toLocaleString('ru-RU') + ' ₽';
             if (calcResult) {
                 calcResult.style.display = 'block';
                 calcResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -120,14 +101,27 @@
         });
     });
 
-    // ========== CTA FORM ==========
     var ctaForm = document.getElementById('ctaForm');
-    
-    // API URL для отправки лидов
-    var API_URL = window.location.hostname === 'localhost'
+    var API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
         ? 'http://localhost:8000'
         : 'https://beton-backend-kwa9.onrender.com';
-        
+
+    function normalizePhone(phone) {
+        var digits = String(phone || '').replace(/\D/g, '');
+        if (!digits) return '';
+        if (digits.length === 11 && digits[0] === '8') return '+7' + digits.slice(1);
+        if (digits.length === 11 && digits[0] === '7') return '+' + digits;
+        if (digits.length === 10) return '+7' + digits;
+        return phone;
+    }
+
+    fetch(`${API_URL}/api/config`).then(function (r) {
+        if (!r.ok) return null;
+        return r.json();
+    }).then(function (cfg) {
+        if (cfg && cfg.api_url) API_URL = cfg.api_url;
+    }).catch(function () {});
+
     if (ctaForm) {
         ctaForm.addEventListener('submit', async function (e) {
             e.preventDefault();
@@ -151,24 +145,27 @@
             try {
                 const response = await fetch(`${API_URL}/api/leads/create`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name,
-                        phone,
+                        phone: normalizePhone(phone),
                         concrete_grade: mark,
                         volume: parseFloat(volume) || 5,
                         source: 'landing-trust'
                     })
                 });
 
-                btn.textContent = 'Заявка отправлена!';
-                btn.style.background = '#059669';
-                ctaForm.reset();
+                const result = await response.json().catch(function () { return {}; });
+                if (response.ok && (result.status === 'success' || result.status === 'duplicate')) {
+                    btn.textContent = 'Заявка отправлена!';
+                    btn.style.background = '#059669';
+                    ctaForm.reset();
+                } else {
+                    alert('Ошибка: ' + (result.message || result.detail || 'Не удалось отправить заявку.'));
+                }
             } catch (err) {
                 console.error('Ошибка отправки:', err);
-                btn.textContent = 'Заявка отправлена!';
-                btn.style.background = '#059669';
-                ctaForm.reset();
+                alert('Ошибка соединения. Попробуйте позже или позвоните нам.');
             } finally {
                 setTimeout(function () {
                     btn.textContent = originalText;
@@ -178,7 +175,6 @@
             }
         });
 
-        // Phone mask
         var phoneInput = ctaForm.querySelector('input[name="phone"]');
         if (phoneInput) {
             phoneInput.addEventListener('input', function () {
@@ -191,61 +187,29 @@
                 var formatted = '';
                 if (value[0] === '7' || value[0] === '8') {
                     formatted = '+7';
-                    if (value.length > 1) {
-                        formatted += ' (' + value.substring(1, 4);
-                    }
-                    if (value.length > 4) {
-                        formatted += ') ' + value.substring(4, 7);
-                    }
-                    if (value.length > 7) {
-                        formatted += '-' + value.substring(7, 9);
-                    }
-                    if (value.length > 9) {
-                        formatted += '-' + value.substring(9, 11);
-                    }
+                    if (value.length > 1) formatted += ' (' + value.substring(1, 4);
+                    if (value.length > 4) formatted += ') ' + value.substring(4, 7);
+                    if (value.length > 7) formatted += '-' + value.substring(7, 9);
+                    if (value.length > 9) formatted += '-' + value.substring(9, 11);
                 } else {
                     formatted = '+7 (' + value.substring(0, 3);
-                    if (value.length > 3) {
-                        formatted += ') ' + value.substring(3, 6);
-                    }
-                    if (value.length > 6) {
-                        formatted += '-' + value.substring(6, 8);
-                    }
-                    if (value.length > 8) {
-                        formatted += '-' + value.substring(8, 10);
-                    }
+                    if (value.length > 3) formatted += ') ' + value.substring(3, 6);
+                    if (value.length > 6) formatted += '-' + value.substring(6, 8);
+                    if (value.length > 8) formatted += '-' + value.substring(8, 10);
                 }
 
                 this.value = formatted;
             });
-
-            phoneInput.addEventListener('focus', function () {
-                if (!this.value) {
-                    this.value = '+7';
-                }
-            });
-
-            phoneInput.addEventListener('blur', function () {
-                if (this.value === '+7') {
-                    this.value = '';
-                }
-            });
         }
     }
 
-    // ========== HEADER SHADOW ON SCROLL ==========
     var header = document.querySelector('.header');
     if (header) {
         window.addEventListener('scroll', function () {
-            if (window.scrollY > 10) {
-                header.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
-            } else {
-                header.style.boxShadow = 'none';
-            }
+            header.style.boxShadow = window.scrollY > 10 ? '0 2px 12px rgba(0,0,0,0.08)' : 'none';
         });
     }
 
-    // ========== URGENCY BAR ANIMATION ==========
     var urgencyFill = document.querySelector('.urgency-fill');
     if (urgencyFill) {
         var observer = new IntersectionObserver(function (entries) {
@@ -257,9 +221,7 @@
             });
         }, { threshold: 0.5 });
 
-        // Start at 0 for animation
         urgencyFill.style.width = '0%';
         observer.observe(urgencyFill);
     }
-
 })();

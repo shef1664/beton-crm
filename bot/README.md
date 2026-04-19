@@ -1,19 +1,12 @@
-# Умный автопарк — Telegram Bot
+# PULSAR Bot Archive
 
-## Переменные окружения
-- BOT_TOKEN — токен бота от BotFather
-- WEBAPP_URL — URL развёрнутого Mini App
-- DIRECTOR_ID — Telegram ID директора
+This folder is not part of the concrete sales landing.
 
-## Команды
-- /start — войти в систему
-- /myid — узнать свой ID
-- /setrole <id> <роль> — назначить роль (только директор)
-- /roles — список пользователей (только директор)
+It contains an archived Telegram bot and Mini App for a separate PULSAR
+operations project. The code here is about fleet roles, Google Sheets,
+trip logging, repairs, and director dashboards.
 
-## Роли
-- driver — водитель
-- mechanic — слесарь
-- economist — экономист
-- logist — логист
-- director — директор
+For the current repository:
+- use `../backend` for lead intake, amoCRM, calculator, and notifications;
+- use `../landing-main` and `../variants` for the landing pages;
+- ignore this folder unless you intentionally work on the old PULSAR module.

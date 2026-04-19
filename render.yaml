@@ -25,6 +25,22 @@ services:
         sync: false
       - key: AMOCRM_PIPELINE_ID
         value: "10818570"
+      - key: AMOCRM_PIPELINE_STATUSES_JSON
+        value: '{"unprocessed":85162966,"new":85162970,"data_collection":85162974,"calculation":85162978,"hot_lead":85162982,"confirmed":85162986,"won":142,"lost":143}'
+      - key: AMOCRM_CUSTOM_FIELD_IDS_JSON
+        value: '{"source_platform":1502999,"source_channel":1503027,"source_account":1503029,"source_listing":1503031,"source_campaign":1503033,"client_type":1503035,"concrete_grade":1503037,"volume":1503039,"address":1503041,"delivery_date":1503043,"urgency":1503045,"payment_method":1503047,"comment":1503049,"calculated_amount":1503051,"distance":1503053,"sales_priority":1503055,"assigned_manager":1503057,"lead_status":1503059,"next_action":1503061,"route_bucket":1503063,"sales_playbook":1503065,"qualification_script":1503067,"sla_minutes":1503069,"contact_deadline_at":1503071,"utm_source":1494501,"utm_medium":1494497,"utm_campaign":1494499}'
+      - key: SALES_MANAGERS_JSON
+        value: '{"geo":"geo-team","marketplaces":"marketplace-team","messengers":"messenger-team","phone":"call-team","default":"sales-team"}'
+      - key: BASEROW_URL
+        value: "https://api.baserow.io"
+      - key: BASEROW_TOKEN
+        sync: false
+      - key: BASEROW_LEADS_TABLE_ID
+        sync: false
+      - key: BASEROW_LOGS_TABLE_ID
+        sync: false
+      - key: INTEGRATION_KEYS_JSON
+        sync: false
       - key: API_SECRET_KEY
         sync: false
       - key: BACKEND_URL

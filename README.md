@@ -68,6 +68,23 @@
 
 ---
 
+## CRM и отдел продаж
+
+- Центральная точка для воронки: `amoCRM`
+- Документ по полям, источникам и статусам: `docs/SALES_CRM_SCHEMA.md`
+- Текущее API-описание CRM-схемы: `GET /api/crm/schema`
+- Для многоканальных лидов backend уже поддерживает:
+  - `source_platform`
+  - `source_channel`
+  - `source_account`
+  - `source_listing`
+  - `source_campaign`
+  - `utm_source`, `utm_medium`, `utm_campaign`
+
+Это нужно для подключения сайта, Telegram, телефонии, Яндекс Карт, 2ГИС, Авито, ВК и MAX без смены модели данных.
+
+---
+
 ## 🔑 Что нужно настроить
 
 ### 1. amoCRM
@@ -163,8 +180,15 @@ uvicorn main:app --reload
 | PATCH | `/api/leads/{id}` | Обновление лида |
 | POST | `/api/calculate` | Расчёт стоимости |
 | GET | `/api/leads` | Список лидов |
+| GET | `/api/sales/dashboard` | Сводка по лидам и источникам |
+| GET | `/api/sales/report` | Расширенный отчет по intake, дублям и ошибкам |
+| GET | `/api/crm/schema` | CRM-схема, статусы и поля |
+| GET | `/api/integrations/schema` | Каталог и схема внешних интеграций |
+| POST | `/api/intake/external` | Единый вход для внешних источников |
 | POST | `/webhooks/amocrm` | Webhook от amoCRM |
 | POST | `/webhooks/telegram` | Webhook от бота |
+| POST | `/webhooks/telephony` | Webhook от телефонии |
+| POST | `/webhooks/external/{integration}` | Универсальный webhook для внешних каналов |
 
 ---
 

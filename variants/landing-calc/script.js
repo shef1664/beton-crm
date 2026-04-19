@@ -274,14 +274,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                     body: JSON.stringify(payload)
                 });
 
-                if (response.ok) {
-                    showFormMessage(ctaForm, 'success',
-                        '✅ Заявка принята! Перезвоним за 5 минут.');
+                const result = await response.json().catch(() => ({}));
+                if (response.ok && (result.status === 'success' || result.status === 'duplicate')) {
+                    showFormMessage(
+                        ctaForm,
+                        'success',
+                        result.status === 'duplicate'
+                            ? '✅ Вы уже оставляли заявку. Мы свяжемся с вами!'
+                            : '✅ Заявка принята! Перезвоним за 5 минут.'
+                    );
                     ctaForm.reset();
                 } else {
-                    const err = await response.json().catch(() => ({}));
-                    showFormMessage(ctaForm, 'error',
-                        '❌ ' + (err.detail || 'Ошибка сервера') + '. Позвоните: 8-903-916-40-40');
+                    showFormMessage(
+                        ctaForm,
+                        'error',
+                        '❌ ' + (result.message || result.detail || 'Ошибка сервера') + '. Позвоните: 8-903-916-40-40'
+                    );
                 }
             } catch (err) {
                 console.error('Ошибка отправки:', err);
