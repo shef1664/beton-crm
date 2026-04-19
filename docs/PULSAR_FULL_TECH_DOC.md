@@ -7,7 +7,7 @@
 ## РАЗДЕЛ 1. ОБЩЕЕ ОПИСАНИЕ ПРОЕКТА
 
 **Название:** Ежедневный отчёт ООО Пульсар
-**Telegram-имя бота:** @Puls_kembot (токен: 8663680672:AAHRNHCrUxlmsU3jbUNnABuY-i5fmEiJ8KE)
+**Telegram-имя бота:** @Puls_kembot (токен хранится только в секретах окружения)
 **Компания:** ООО Пульсар, г. Кемерово
 **Тип:** Telegram Mini App (HTML/CSS/JS, открывается внутри Telegram)
 
@@ -688,7 +688,7 @@ ID хранения дат: dln-date-load, dln-date-unload, dt-date, exp-date
 - **Планируется переход на Google Drive**
 
 ### 7.3 Telegram Bot API
-- **Токен:** 8663680672:AAGif_fHZP0UZwbMkNo5Pr1cq3Tj4JhCMrM
+- **Токен:** хранится только в секретах окружения
 - **Имя бота:** @smart_fleet_kembot (уточнить у владельца)
 - **Хостинг:** Railway.app (аккаунт shef1664@gmail.com)
 - **GitHub репо бота:** https://github.com/shef1664/smart-fleet-bot
@@ -712,7 +712,7 @@ ROLES = {
 
 **Переменные окружения Railway:**
 ```
-BOT_TOKEN = 8663680672:AAGif_fHZP0UZwbMkNo5Pr1cq3Tj4JhCMrM
+BOT_TOKEN = <BOT_TOKEN_FROM_BOTFATHER>
 DIRECTOR_ID = 150420
 WEBAPP_URL = https://shef1664.github.io/smart-fleet-app
 ```

@@ -3,7 +3,7 @@ import os
 import json
 
 # Токен бота от @BotFather
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8663680672:AAHRNHCrUxlmsU3jbUNnABuY-i5fmEiJ8KE")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 # WebApp URL
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://your-app.railway.app")
