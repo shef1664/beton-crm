@@ -1,7 +1,6 @@
 """
-Storage layer backed by SQLite.
-The public interface stays close to the old Baserow service so main.py
-does not need a second architecture.
+Storage layer with SQLite as the reliable local store and optional Baserow
+mirroring when external credentials are configured.
 """
 
 import json
@@ -11,6 +10,9 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+import httpx
+
+from config import settings
 from services.lead_utils import coerce_amount, normalize_phone
 
 logger = logging.getLogger(__name__)
@@ -126,10 +128,36 @@ _init_db()
 
 
 class BaserowService:
-    """SQLite implementation with the old service interface."""
+    """SQLite-first storage with optional async mirroring to Baserow."""
 
     def is_available(self) -> bool:
         return True
+
+    def is_external_configured(self) -> bool:
+        return bool(
+            settings.BASEROW_TOKEN
+            and settings.BASEROW_LEADS_TABLE_ID
+            and settings.BASEROW_LOGS_TABLE_ID
+        )
+
+    async def _post_external_row(self, table_id: int, payload: dict) -> bool:
+        if not self.is_external_configured():
+            return False
+
+        url = f"{settings.BASEROW_URL.rstrip('/')}/api/database/rows/table/{table_id}/?user_field_names=true"
+        headers = {
+            "Authorization": f"Token {settings.BASEROW_TOKEN}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                response = await client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+            return True
+        except Exception as exc:
+            logger.error("Baserow mirror failed for table %s: %s", table_id, exc)
+            return False
 
     async def log_lead(self, lead_data: dict):
         try:
@@ -180,6 +208,41 @@ class BaserowService:
         except Exception as e:
             logger.error(f"SQLite lead save failed: {e}")
 
+        if self.is_external_configured():
+            await self._post_external_row(
+                settings.BASEROW_LEADS_TABLE_ID,
+                {
+                    "name": lead_data.get("name"),
+                    "phone": normalize_phone(lead_data.get("phone")) or lead_data.get("phone"),
+                    "source": lead_data.get("source"),
+                    "source_platform": lead_data.get("source_platform"),
+                    "source_channel": lead_data.get("source_channel"),
+                    "source_account": lead_data.get("source_account"),
+                    "source_listing": lead_data.get("source_listing"),
+                    "source_campaign": lead_data.get("source_campaign"),
+                    "utm_source": lead_data.get("utm_source"),
+                    "utm_medium": lead_data.get("utm_medium"),
+                    "utm_campaign": lead_data.get("utm_campaign"),
+                    "client_type": lead_data.get("client_type"),
+                    "concrete_grade": lead_data.get("concrete_grade"),
+                    "volume": lead_data.get("volume"),
+                    "address": lead_data.get("address"),
+                    "comment": lead_data.get("comment"),
+                    "calculated_amount": coerce_amount(lead_data.get("calculated_amount")),
+                    "sales_priority": lead_data.get("sales_priority"),
+                    "assigned_manager": lead_data.get("assigned_manager"),
+                    "lead_status": lead_data.get("lead_status"),
+                    "next_action": lead_data.get("next_action"),
+                    "route_bucket": lead_data.get("route_bucket"),
+                    "sales_playbook": lead_data.get("sales_playbook"),
+                    "qualification_script": lead_data.get("qualification_script"),
+                    "sla_minutes": lead_data.get("sla_minutes"),
+                    "contact_deadline_at": lead_data.get("contact_deadline_at"),
+                    "lead_id": lead_data.get("lead_id"),
+                    "created_at": lead_data.get("created_at") or datetime.now().isoformat(),
+                },
+            )
+
     async def log_calculation(self, calc_data: dict, result: dict):
         try:
             with _get_conn() as conn:
@@ -217,6 +280,17 @@ class BaserowService:
                 )
         except Exception as e:
             logger.error(f"SQLite error log failed: {e}")
+
+        if self.is_external_configured():
+            await self._post_external_row(
+                settings.BASEROW_LOGS_TABLE_ID,
+                {
+                    "action": action,
+                    "error": error,
+                    "data": json.dumps(data, ensure_ascii=False)[:4000],
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
 
     def get_leads(self, limit: int = 100) -> list:
         try:

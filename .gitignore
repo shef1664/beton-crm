@@ -33,6 +33,9 @@ desktop.ini
 # Логи
 *.log
 logs/
+logs*.json
+render_logs*.json
+deploy_status.json
 
 # Node
 node_modules/
