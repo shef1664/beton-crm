@@ -5,11 +5,14 @@ PULSAR — Telegram-бот + API сервер для MiniApp.
 
 import logging
 import json
+import os
+import tempfile
 from datetime import datetime
 from telegram import Update, WebAppInfo, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes
 
 import sheets
+import transcribe
 from api_server import create_app
 from config import BOT_TOKEN, WEBAPP_URL, DIRECTOR_CHAT_ID, API_PORT
 
@@ -116,6 +119,79 @@ async def roles_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text)
 
 
+TG_FILE_LIMIT_MB = 20  # Лимит Bot API на скачивание файла
+
+
+async def _send_long_text(update: Update, prefix: str, text: str):
+    """Отправляет длинный текст, разбивая на куски ≤ 4000 символов."""
+    full = (prefix + text) if prefix else text
+    chunk_size = 4000
+    for i in range(0, len(full), chunk_size):
+        await update.message.reply_text(full[i:i + chunk_size])
+
+
+async def transcribe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/transcribe <url> — расшифровать видео по ссылке (YouTube и др.)."""
+    if not context.args:
+        await update.message.reply_text(
+            "Использование: /transcribe <ссылка на видео>\n"
+            "Пример: /transcribe https://youtu.be/xxxxx\n\n"
+            "Можно также прислать видео или голосовое сообщение — расшифрую автоматически."
+        )
+        return
+
+    url = context.args[0].strip()
+    if not url.startswith(("http://", "https://")):
+        await update.message.reply_text("⚠️ Нужна ссылка, начинающаяся с http(s)://")
+        return
+
+    status = await update.message.reply_text("⏳ Скачиваю аудио и расшифровываю...")
+    try:
+        text = await transcribe.transcribe_youtube(url)
+        await status.delete()
+        if not text:
+            await update.message.reply_text("⚠️ Whisper вернул пустой текст.")
+            return
+        await _send_long_text(update, "📝 Расшифровка:\n\n", text)
+    except Exception as e:
+        logger.exception("Ошибка транскрипции по ссылке")
+        await status.edit_text(f"⚠️ Не удалось расшифровать: {e}")
+
+
+async def media_transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Расшифровка прикреплённого видео / голосового / аудио."""
+    msg = update.message
+    media = msg.voice or msg.audio or msg.video or msg.video_note or msg.document
+    if not media:
+        return
+
+    file_size = getattr(media, "file_size", 0) or 0
+    if file_size > TG_FILE_LIMIT_MB * 1024 * 1024:
+        await msg.reply_text(
+            f"⚠️ Файл {file_size // 1024 // 1024} МБ — больше лимита Telegram Bot API "
+            f"({TG_FILE_LIMIT_MB} МБ). Пришлите ссылку через /transcribe."
+        )
+        return
+
+    status = await msg.reply_text("⏳ Расшифровываю...")
+    try:
+        tg_file = await context.bot.get_file(media.file_id)
+        with tempfile.TemporaryDirectory() as tmp:
+            ext = (getattr(media, "mime_type", "") or "").split("/")[-1] or "ogg"
+            path = os.path.join(tmp, f"input.{ext}")
+            await tg_file.download_to_drive(path)
+            text = await transcribe.transcribe_file(path)
+
+        await status.delete()
+        if not text:
+            await msg.reply_text("⚠️ Whisper вернул пустой текст.")
+            return
+        await _send_long_text(update, "📝 Расшифровка:\n\n", text)
+    except Exception as e:
+        logger.exception("Ошибка транскрипции медиа")
+        await status.edit_text(f"⚠️ Не удалось расшифровать: {e}")
+
+
 async def webapp_data(update: "Update", context: ContextTypes.DEFAULT_TYPE):
     """Обработка данных от MiniApp (fallback если API недоступен)."""
     user = update.effective_user
@@ -177,6 +253,11 @@ def main():
     telegram_app.add_handler(CommandHandler("setrole", setrole))
     telegram_app.add_handler(CommandHandler("myid", myid))
     telegram_app.add_handler(CommandHandler("roles", roles_list))
+    telegram_app.add_handler(CommandHandler("transcribe", transcribe_cmd))
+    telegram_app.add_handler(MessageHandler(
+        filters.VOICE | filters.AUDIO | filters.VIDEO | filters.VIDEO_NOTE,
+        media_transcribe,
+    ))
     telegram_app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, webapp_data))
 
     # Создаём API сервер
