@@ -3,6 +3,8 @@ Storage layer with SQLite as the reliable local store and optional Baserow
 mirroring when external credentials are configured.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
