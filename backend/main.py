@@ -12,6 +12,8 @@ from typing import Any, Optional
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 from bot.main import start_bot as start_telegram_bot, stop_bot as stop_telegram_bot
@@ -130,8 +132,20 @@ class WorkqueueContactRequest(BaseModel):
     comment: Optional[str] = Field(None, description="Комментарий менеджера")
 
 
+LANDING_DIR = Path(__file__).resolve().parent.parent / "landing"
+VARIANTS_DIR = Path(__file__).resolve().parent.parent / "variants"
+
+if (LANDING_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(LANDING_DIR / "assets")), name="assets")
+if VARIANTS_DIR.exists():
+    app.mount("/variants", StaticFiles(directory=str(VARIANTS_DIR), html=True), name="variants")
+
+
 @app.get("/")
 async def root():
+    index = LANDING_DIR / "index.html"
+    if index.exists():
+        return FileResponse(str(index), media_type="text/html")
     return {
         "status": "ok",
         "service": "Бетон Backend API",
