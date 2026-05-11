@@ -154,6 +154,16 @@ async def root():
     }
 
 
+@app.get("/privacy.html")
+@app.get("/privacy")
+async def privacy_policy():
+    """Политика обработки персональных данных (152-ФЗ)."""
+    policy = LANDING_DIR / "privacy.html"
+    if policy.exists():
+        return FileResponse(str(policy), media_type="text/html; charset=utf-8")
+    raise HTTPException(status_code=404, detail="privacy policy not found")
+
+
 @app.get("/ping")
 async def ping():
     return {"pong": True, "timestamp": datetime.now().isoformat()}
