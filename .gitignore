@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.so
+
+# Secrets
+backend/.env
+.env
+.env.local
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs*.json
+render_logs*.json
+deploy_status.json
+
+# Build
+node_modules/
+dist/
+build/
+
+# Drive sync junk
+*.cdr
+*.rar
+temporary-screenshots/
+
+# Old backups
+*.bak
+landing/_old_redirect.html.bak

@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Executive Dashboard - Automated Sales Department</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-alt: #f0f4fa;
+      --border: #d9e2ef;
+      --text: #213547;
+      --muted: #667a8a;
+      --brand: #0b5cab;
+      --brand-strong: #083b6f;
+      --good: #1f9d55;
+      --warn: #dd8a16;
+      --bad: #d14343;
+      --shadow: 0 10px 30px rgba(15, 42, 64, 0.08);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at top right, rgba(11, 92, 171, 0.08), transparent 25%),
+        linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+      color: var(--text);
+    }
+
+    .topbar {
+      height: 64px;
+      background: linear-gradient(90deg, var(--brand-strong), var(--brand));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      box-shadow: 0 2px 18px rgba(8, 59, 111, 0.22);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, #8bd2ff 0%, #fff 40%, #7ab5ff 100%);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.28);
+    }
+
+    .topbar-meta {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.22);
+      backdrop-filter: blur(8px);
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg, #fff, #fbfdff);
+    }
+
+    .panel-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .panel-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .hero-body {
+      padding: 20px 22px 24px;
+    }
+
+    .headline {
+      margin: 0 0 14px;
+      font-size: 30px;
+      line-height: 1.12;
+      color: #18324a;
+    }
+
+    .summary {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .filter-pill {
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: #375168;
+      font-size: 13px;
+    }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi::after {
+      content: "";
+      position: absolute;
+      inset: auto -20px -25px auto;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: rgba(11, 92, 171, 0.08);
+    }
+
+    .kpi-label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .kpi-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #102a43;
+      margin-bottom: 8px;
+    }
+
+    .kpi-note {
+      font-size: 13px;
+      color: #476072;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .mini-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, #fff, #fbfdff);
+      padding: 16px;
+    }
+
+    .mini-title {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0 0 14px;
+    }
+
+    .bar-group {
+      display: grid;
+      gap: 10px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: #e9f0f7;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--brand), #56a7ff);
+    }
+
+    .donut-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 12px 0 4px;
+    }
+
+    .donut {
+      --value: 72;
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      background:
+        conic-gradient(var(--brand) calc(var(--value) * 1%), #dfe8f4 0);
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .donut::before {
+      content: "";
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background: var(--surface);
+      box-shadow: inset 0 0 0 1px var(--border);
+    }
+
+    .donut-value {
+      position: absolute;
+      font-size: 24px;
+      font-weight: 700;
+      color: #15314b;
+    }
+
+    .status-list {
+      padding: 14px 18px 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .status-item {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr 1.5fr;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #fcfdff;
+    }
+
+    .status-name {
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      width: fit-content;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .badge::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .badge.good { color: var(--good); background: rgba(31, 157, 85, 0.10); }
+    .badge.warn { color: var(--warn); background: rgba(221, 138, 22, 0.12); }
+    .badge.bad { color: var(--bad); background: rgba(209, 67, 67, 0.10); }
+
+    .status-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      padding: 0 0 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+    }
+
+    th, td {
+      padding: 14px 16px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    th {
+      background: #f8fbff;
+      color: #35526b;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .priority-list,
+    .risk-list {
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .priority-item,
+    .risk-item {
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #fff, #fbfdff);
+    }
+
+    .priority-item strong,
+    .risk-item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #17324a;
+    }
+
+    .meta-note {
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    @media (max-width: 1100px) {
+      .hero, .grid, .footer-grid, .kpis, .chart-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>Executive Dashboard / Automated Sales Department</div>
+    </div>
+    <div class="topbar-meta">
+      <div class="chip">Snapshot: 2026-04-20</div>
+      <div class="chip">Style: Apache Superset Inspired</div>
+      <div class="chip">Owner: shef1664</div>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Executive Summary</h2>
+            <p class="panel-subtitle">Стратегический срез по автоматизированному отделу продаж</p>
+          </div>
+          <div class="meta-note">diagnostics.sales_system_report_2026-04-20</div>
+        </div>
+        <div class="hero-body">
+          <h1 class="headline">Система уже работает как каркас полуавтономного отдела продаж, но ещё не вышла в полностью боевой режим.</h1>
+          <p class="summary">
+            Контур intake, CRM, уведомлений, маршрутизации, workqueue и голосового продавца уже собран.
+            Ключевое достижение текущего этапа: voice-робот проходит базовую воронку продажи,
+            считает стоимость, отрабатывает ценовое возражение и создаёт лид либо передаёт клиента менеджеру.
+          </p>
+          <div class="filters">
+            <div class="filter-pill">Scope: Sales Ops + Voice</div>
+            <div class="filter-pill">Readiness: Controlled Pilot</div>
+            <div class="filter-pill">Primary Risk: Real Telephony + TTS/STT</div>
+            <div class="filter-pill">Next Focus: Production Connectors</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Deployment Outlook</h2>
+            <p class="panel-subtitle">Оценка текущей готовности по верхнему уровню</p>
+          </div>
+        </div>
+        <div class="hero-body">
+          <div class="donut-wrap">
+            <div class="donut" style="--value:72;">
+              <div class="donut-value">72%</div>
+            </div>
+          </div>
+          <p class="summary" style="margin-bottom:0;">
+            Архитектура, sales automation и voice core уже на месте. До уровня production-ready не хватает
+            реального телефонного канала, качественного голоса, расширенных сценариев дожима и сквозной аналитики.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="kpis">
+      <article class="kpi">
+        <div class="kpi-label">Направлений в исходном scope</div>
+        <div class="kpi-value">20</div>
+        <div class="kpi-note">Все ключевые контуры системы сведены в единый roadmap.</div>
+      </article>
+      <article class="kpi">
+        <div class="kpi-label">Сделано / частично готово</div>
+        <div class="kpi-value">15</div>
+        <div class="kpi-note">Каркас уже построен, основные сервисы работают.</div>
+      </article>
+      <article class="kpi">
+        <div class="kpi-label">Критичных блокеров</div>
+        <div class="kpi-value">5</div>
+        <div class="kpi-note">Телефония, TTS/STT, мультиканал, аналитика, advanced sales flows.</div>
+      </article>
+      <article class="kpi">
+        <div class="kpi-label">Voice readiness</div>
+        <div class="kpi-value">BETA</div>
+        <div class="kpi-note">Happy-path и objection-path проходят внутри backend.</div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Operational Readiness</h2>
+            <p class="panel-subtitle">Сравнение зрелости ключевых контуров</p>
+          </div>
+        </div>
+        <div class="chart-grid">
+          <div class="mini-card">
+            <p class="mini-title">Core Sales Stack</p>
+            <div class="bar-group">
+              <div>
+                <div class="bar-label"><span>Lead Intake</span><span>85%</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:85%"></div></div>
+              </div>
+              <div>
+                <div class="bar-label"><span>CRM + Storage</span><span>80%</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:80%"></div></div>
+              </div>
+              <div>
+                <div class="bar-label"><span>Routing + SLA</span><span>74%</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:74%"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="mini-card">
+            <p class="mini-title">Voice Sales Stack</p>
+            <div class="bar-group">
+              <div>
+                <div class="bar-label"><span>Voice Logic</span><span>78%</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:78%"></div></div>
+              </div>
+              <div>
+                <div class="bar-label"><span>Telephony Runtime</span><span>52%</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:52%"></div></div>
+              </div>
+              <div>
+                <div class="bar-label"><span>Human-Like Voice</span><span>30%</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:30%"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="mini-card">
+            <p class="mini-title">Management Analytics</p>
+            <div class="bar-group">
+              <div>
+                <div class="bar-label"><span>Workqueue Visibility</span><span>76%</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:76%"></div></div>
+              </div>
+              <div>
+                <div class="bar-label"><span>Channel Analytics</span><span>44%</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:44%"></div></div>
+              </div>
+              <div>
+                <div class="bar-label"><span>Voice Funnel Metrics</span><span>38%</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:38%"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Critical Status</h2>
+            <p class="panel-subtitle">Что уже можно использовать, а что ещё нельзя масштабировать</p>
+          </div>
+        </div>
+        <div class="status-list">
+          <div class="status-item">
+            <div class="status-name">Lead Intake + CRM</div>
+            <div><span class="badge good">Stable</span></div>
+            <div class="status-note">Единый intake, расчёт, amoCRM/fallback storage и Telegram-уведомления уже работают.</div>
+          </div>
+          <div class="status-item">
+            <div class="status-name">Voice Sales Core</div>
+            <div><span class="badge warn">Pilot</span></div>
+            <div class="status-note">Робот проходит happy-path и handoff по цене, но ещё нуждается в расширении сценариев.</div>
+          </div>
+          <div class="status-item">
+            <div class="status-name">Real Telephony</div>
+            <div><span class="badge bad">Blocked</span></div>
+            <div class="status-note">Без реального провайдера звонок не выйдет в production-канал.</div>
+          </div>
+          <div class="status-item">
+            <div class="status-name">Human-Like Speech</div>
+            <div><span class="badge bad">Blocked</span></div>
+            <div class="status-note">Нужны качественные TTS/STT-провайдеры, иначе робот будет звучать технически, а не по-человечески.</div>
+          </div>
+          <div class="status-item">
+            <div class="status-name">Executive Analytics</div>
+            <div><span class="badge warn">Partial</span></div>
+            <div class="status-note">Dashboard-слой есть, но каналовая и voice-конверсионная аналитика ещё неполная.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-bottom:18px;">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Implementation Matrix</h2>
+          <p class="panel-subtitle">Сводный статус по изначальному scope внедрения</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Направление</th>
+              <th>Что хотели внедрить</th>
+              <th>Статус</th>
+              <th>Что уже сделано</th>
+              <th>Что осталось</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Захват лидов</td><td>Принимать заявки из всех каналов в один контур</td><td><span class="badge warn">Partial</span></td><td>Есть приём лидов с сайта, Telegram, телефонии и внешних webhook</td><td>Довести реальные подключения Яндекс Карт, 2ГИС, Avito, VK, WhatsApp и других каналов</td></tr>
+            <tr><td>Единая воронка</td><td>Складывать все лиды в одну sales-воронку</td><td><span class="badge warn">Partial</span></td><td>Есть единый backend intake, нормализация, маршрутизация и единые lead fields</td><td>Дошлифовать статусы и синхронизацию воронки во всех интеграциях</td></tr>
+            <tr><td>Расчёт заказа</td><td>Автоматически считать бетон, доставку и сумму</td><td><span class="badge good">Done</span></td><td>Есть калькулятор и интеграция расчёта в API и voice flow</td><td>Добавить больше коммерческих правил: насос, минималка, рейсы, скидки</td></tr>
+            <tr><td>CRM-интеграция</td><td>Автоматически создавать лиды в CRM</td><td><span class="badge warn">Partial</span></td><td>Есть amoCRM-интеграция и fallback в локальное хранилище</td><td>Дошлифовать кастомные поля, статусы и аналитику</td></tr>
+            <tr><td>Локальное хранилище</td><td>Сохранять лиды и события даже без CRM</td><td><span class="badge good">Done</span></td><td>Есть SQLite и логирование</td><td>Улучшить отчётность и контроль качества данных</td></tr>
+            <tr><td>Telegram-уведомления</td><td>Уведомлять команду о лидах и событиях</td><td><span class="badge good">Done</span></td><td>Есть Telegram notifier</td><td>Добавить больше событий и SLA-эскалации</td></tr>
+            <tr><td>Автораспределение</td><td>Назначать менеджера, приоритет, playbook и SLA</td><td><span class="badge warn">Partial</span></td><td>Есть sales automation, routing, playbook и deadlines</td><td>Донастроить реальные правила под бизнес</td></tr>
+            <tr><td>Рабочая очередь</td><td>Давать отделу продаж workqueue</td><td><span class="badge good">Done</span></td><td>Есть dashboard, report и workqueue endpoints</td><td>Довести UX и overdue-эскалации</td></tr>
+            <tr><td>Голосовой робот</td><td>Чтобы робот отвечал на звонки</td><td><span class="badge warn">Partial</span></td><td>Есть voice flow, voice sessions, telephony webhook и telephony status</td><td>Подключить реального провайдера телефонии</td></tr>
+            <tr><td>Продающий сценарий</td><td>Чтобы робот вёл звонок по воронке продаж</td><td><span class="badge warn">Partial</span></td><td>Робот собирает параметры заказа, считает цену, делает handoff и может создать лид</td><td>Добавить больше веток: молчание, перенос звонка, счёт, насос, торг, конкуренты</td></tr>
+            <tr><td>Человечный голос</td><td>Чтобы робот звучал максимально как живой</td><td><span class="badge bad">Open</span></td><td>Есть TTS/STT abstraction и стилизация ответа</td><td>Подключить реальный качественный TTS/STT и доработать natural conversation</td></tr>
+            <tr><td>Обработка возражений</td><td>Чтобы робот не просто собирал поля, а продавал</td><td><span class="badge warn">Partial</span></td><td>Есть базовая обработка цены и перевод на менеджера</td><td>Добавить полноценные скрипты дожима и альтернативные офферы</td></tr>
+            <tr><td>Голосовая квалификация</td><td>Чтобы робот сам собирал параметры заказа</td><td><span class="badge warn">Partial</span></td><td>Собирает марку, объём, адрес, расстояние, дату, оплату, срочность и имя</td><td>Добавить юрлицо, насос, приёмку, документы и детали оплаты</td></tr>
+            <tr><td>Автодожим</td><td>Чтобы система доводила клиента до сделки</td><td><span class="badge bad">Open</span></td><td>Есть только зачатки в voice flow и automation</td><td>Нужны follow-up сценарии, повторные касания и next action cycle</td></tr>
+            <tr><td>Мультиканальный отдел продаж</td><td>Чтобы система работала не только с сайтом</td><td><span class="badge warn">Partial</span></td><td>Архитектура уже готова</td><td>Нужны реальные боевые интеграции каналов</td></tr>
+            <tr><td>SLA-контроль</td><td>Следить за скоростью реакции менеджеров</td><td><span class="badge warn">Partial</span></td><td>SLA и deadlines уже заложены</td><td>Нужны автоматические эскалации и отчёты по просрочкам</td></tr>
+            <tr><td>Конверсионная аналитика</td><td>Понимать эффективность каналов и этапов</td><td><span class="badge warn">Partial</span></td><td>База для dashboard и report уже есть</td><td>Нужна полная аналитика по воронке, voice-конверсии и источникам</td></tr>
+            <tr><td>Полуавтономный отдел продаж</td><td>Чтобы человек подключался только в сложных местах</td><td><span class="badge bad">Open</span></td><td>Есть каркас и часть автоматизации</td><td>Нужно соединить voice, CRM, дожим, SLA и аналитику в единый боевой цикл</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="footer-grid">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Top 5 Priorities</h2>
+            <p class="panel-subtitle">Что директору стоит держать в фокусе в ближайший цикл</p>
+          </div>
+        </div>
+        <div class="priority-list">
+          <div class="priority-item">
+            <strong>1. Реальная телефония</strong>
+            Подключить production-провайдера и вывести voice-робота в настоящий входящий звонок.
+          </div>
+          <div class="priority-item">
+            <strong>2. Quality Voice Stack</strong>
+            Подключить качественные TTS/STT, иначе брендовый клиентский опыт останется техническим.
+          </div>
+          <div class="priority-item">
+            <strong>3. Sales Scenarios</strong>
+            Доработать ветки дожима, торга, переноса, счёта, насоса и B2B-квалификации.
+          </div>
+          <div class="priority-item">
+            <strong>4. Channel Expansion</strong>
+            Довести реальные интеграции по внешним площадкам, чтобы отдел продаж стал по-настоящему мультиканальным.
+          </div>
+          <div class="priority-item">
+            <strong>5. Executive Analytics</strong>
+            Построить голосовую и каналовую конверсионную аналитику для управленческих решений.
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Key Risks</h2>
+            <p class="panel-subtitle">Что ограничивает масштабирование прямо сейчас</p>
+          </div>
+        </div>
+        <div class="risk-list">
+          <div class="risk-item">
+            <strong>Voice quality risk</strong>
+            Без production TTS/STT робот будет функциональным, но не премиальным по восприятию.
+          </div>
+          <div class="risk-item">
+            <strong>Telephony dependency</strong>
+            Пока нет реального провайдера, нельзя валидировать звонок end-to-end на живой инфраструктуре.
+          </div>
+          <div class="risk-item">
+            <strong>Analytics blind spot</strong>
+            Без voice funnel metrics сложно принимать решения по окупаемости и качеству робота.
+          </div>
+          <div class="risk-item">
+            <strong>Scenario coverage</strong>
+            Ограниченный набор веток может снизить конверсию на более сложных клиентах и возражениях.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

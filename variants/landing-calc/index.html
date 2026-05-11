@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ТрансМикс — Бетон от 5800 ₽/м³ с доставкой по Кемерово</title>
+    <meta name="description" content="Купить бетон с доставкой в Кемерово. Собственное производство, без посредников. Расчёт за 5 минут. Звоните: 8-903-916-40-40">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="container header-inner">
+            <div class="logo">
+                <span class="logo-icon">🏗️</span>
+                <span class="logo-text">Транс<span class="logo-accent">Микс</span></span>
+            </div>
+            <nav class="nav">
+                <a href="#prices">Цены</a>
+                <a href="#calculator">Калькулятор</a>
+                <a href="#process">Как заказать</a>
+                <a href="#trust">О нас</a>
+            </nav>
+            <a href="tel:89039164040" class="header-phone">8-903-916-40-40</a>
+            <button class="mobile-menu-btn" aria-label="Меню">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- HERO + CALCULATOR -->
+    <section class="hero" id="hero">
+        <div class="container hero-grid">
+            <div class="hero-text">
+                <div class="badge">Собственное производство</div>
+                <h1>Бетон от <span class="price-highlight">5800 ₽/м³</span> с доставкой по Кемерово</h1>
+                <p class="hero-subtitle">Напрямую с завода. Без посредников. Расчёт за 5 минут.</p>
+                <ul class="hero-features">
+                    <li><span class="check">✓</span> Более 900 объектов</li>
+                    <li><span class="check">✓</span> Свой автопарк миксеров</li>
+                    <li><span class="check">✓</span> Доставка в день заказа</li>
+                    <li><span class="check">✓</span> Гарантия качества ГОСТ</li>
+                </ul>
+                <a href="#calculator" class="btn btn-primary btn-large">Рассчитать стоимость</a>
+            </div>
+            <div class="hero-calc-wrapper" id="calculator">
+                <div class="calculator-card">
+                    <h2 class="calc-title">⚡ Калькулятор бетона</h2>
+                    
+                    <div class="calc-tabs">
+                        <button class="calc-tab active" data-tab="volume">📐 Объём</button>
+                        <button class="calc-tab" data-tab="cylinder">🔵 Площадь цилиндра</button>
+                        <button class="calc-tab" data-tab="mixers">🚛 Кол-во миксеров</button>
+                    </div>
+
+                    <div class="calc-content">
+                        <!-- TAB: Volume -->
+                        <div class="calc-panel active" id="panel-volume">
+                            <div class="calc-shapes">
+                                <button class="shape-btn active" data-shape="plate">Плита</button>
+                                <button class="shape-btn" data-shape="ribbon">Лента</button>
+                                <button class="shape-btn" data-shape="cylinder-v">Цилиндр</button>
+                            </div>
+                            
+                            <!-- Plate -->
+                            <div class="calc-form" id="form-plate">
+                                <div class="input-group">
+                                    <label>Длина (м)</label>
+                                    <input type="number" id="plate-length" placeholder="10" step="0.1" min="0">
+                                </div>
+                                <div class="input-group">
+                                    <label>Ширина (м)</label>
+                                    <input type="number" id="plate-width" placeholder="5" step="0.1" min="0">
+                                </div>
+                                <div class="input-group">
+                                    <label>Высота/толщина (м)</label>
+                                    <input type="number" id="plate-height" placeholder="0.2" step="0.01" min="0">
+                                </div>
+                            </div>
+
+                            <!-- Ribbon -->
+                            <div class="calc-form" id="form-ribbon" style="display:none">
+                                <div class="input-group">
+                                    <label>Периметр (м)</label>
+                                    <input type="number" id="ribbon-perimeter" placeholder="40" step="0.1" min="0">
+                                </div>
+                                <div class="input-group">
+                                    <label>Ширина (м)</label>
+                                    <input type="number" id="ribbon-width" placeholder="0.4" step="0.01" min="0">
+                                </div>
+                                <div class="input-group">
+                                    <label>Высота (м)</label>
+                                    <input type="number" id="ribbon-height" placeholder="1.2" step="0.01" min="0">
+                                </div>
+                            </div>
+
+                            <!-- Cylinder Volume -->
+                            <div class="calc-form" id="form-cylinder-v" style="display:none">
+                                <div class="input-group">
+                                    <label>Радиус (м)</label>
+                                    <input type="number" id="cyl-v-radius" placeholder="0.5" step="0.01" min="0">
+                                </div>
+                                <div class="input-group">
+                                    <label>Высота (м)</label>
+                                    <input type="number" id="cyl-v-height" placeholder="3" step="0.01" min="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB: Cylinder Area -->
+                        <div class="calc-panel" id="panel-cylinder">
+                            <div class="calc-form">
+                                <div class="input-group">
+                                    <label>Радиус цилиндра (м)</label>
+                                    <input type="number" id="cyl-radius" placeholder="0.5" step="0.01" min="0">
+                                </div>
+                                <div class="input-group">
+                                    <label>Высота цилиндра (м)</label>
+                                    <input type="number" id="cyl-height" placeholder="3" step="0.01" min="0">
+                                </div>
+                                <p class="calc-hint">Формула: S = 2πrh (боковая поверхность)</p>
+                            </div>
+                        </div>
+
+                        <!-- TAB: Mixers Count -->
+                        <div class="calc-panel" id="panel-mixers">
+                            <div class="calc-form">
+                                <div class="input-group">
+                                    <label>Общий объём бетона (м³)</label>
+                                    <input type="number" id="mixers-volume" placeholder="20" step="0.1" min="0">
+                                </div>
+                                <p class="calc-hint">В одном миксере: 7 м³</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="calc-grade">
+                        <label>Марка бетона</label>
+                        <select id="concrete-grade">
+                            <option value="5800">М100 — 5 800 ₽/м³</option>
+                            <option value="6100">М150 — 6 100 ₽/м³</option>
+                            <option value="6400" selected>М200 — 6 400 ₽/м³</option>
+                            <option value="6800">М250 — 6 800 ₽/м³</option>
+                            <option value="7200">М300 — 7 200 ₽/м³</option>
+                            <option value="7600">М350 — 7 600 ₽/м³</option>
+                            <option value="8000">М400 — 8 000 ₽/м³</option>
+                            <option value="8400">М450 — 8 400 ₽/м³</option>
+                        </select>
+                    </div>
+
+                    <div class="calc-results">
+                        <div class="result-item">
+                            <span class="result-label">Объём</span>
+                            <span class="result-value" id="result-volume">0 м³</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Площадь</span>
+                            <span class="result-value" id="result-area">0 м²</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Миксеров</span>
+                            <span class="result-value" id="result-mixers">0 шт</span>
+                        </div>
+                        <div class="result-item result-total">
+                            <span class="result-label">Итого</span>
+                            <span class="result-value" id="result-total">0 ₽</span>
+                        </div>
+                    </div>
+
+                    <a href="tel:89039164040" class="btn btn-cta btn-full">📞 Заказать: 8-903-916-40-40</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PAIN BLOCK -->
+    <section class="pain-section">
+        <div class="container">
+            <h2>Переплачиваете посредникам?</h2>
+            <p class="pain-subtitle">У нас — <strong>напрямую с завода</strong>, без наценок</p>
+            <div class="pain-grid">
+                <div class="pain-card pain-bad">
+                    <span class="pain-icon">✕</span>
+                    <h3>Посредники +30% к цене</h3>
+                    <p>Каждый посредник накручивает свою комиссию</p>
+                </div>
+                <div class="pain-card pain-bad">
+                    <span class="pain-icon">✕</span>
+                    <h3>Долгое ожидание</h3>
+                    <p>Перезвоны через 3 компании, пока добетон доберётся</p>
+                </div>
+                <div class="pain-card pain-good">
+                    <span class="pain-icon">✓</span>
+                    <h3>ТрансМикс — напрямую</h3>
+                    <p>Собственный завод, свой автопарк, цена без наценок</p>
+                </div>
+                <div class="pain-card pain-good">
+                    <span class="pain-icon">✓</span>
+                    <h3>Доставка в день заказа</h3>
+                    <p>Позвонили — миксер уже в пути</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SOLUTION -->
+    <section class="solution-section">
+        <div class="container">
+            <div class="solution-flow">
+                <div class="solution-step">
+                    <div class="step-num">1</div>
+                    <h3>Собственное производство</h3>
+                    <p>Бетоно-смесительный узел в Кемерово</p>
+                </div>
+                <div class="solution-arrow">→</div>
+                <div class="solution-step">
+                    <div class="step-num">2</div>
+                    <h3>Без посредников</h3>
+                    <p>Цена от завода — без наценок</p>
+                </div>
+                <div class="solution-arrow">→</div>
+                <div class="solution-step">
+                    <div class="step-num">3</div>
+                    <h3>Свой автопарк</h3>
+                    <p>Миксеры и насосы в наличии</p>
+                </div>
+                <div class="solution-arrow">→</div>
+                <div class="solution-step">
+                    <div class="step-num">4</div>
+                    <h3>Доставка на объект</h3>
+                    <p>В день обращения</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ADVANTAGES -->
+    <section class="advantages" id="advantages">
+        <div class="container">
+            <h2>Почему выбирают ТрансМикс</h2>
+            <div class="adv-grid">
+                <div class="adv-card">
+                    <div class="adv-icon">💰</div>
+                    <h3>Цена напрямую</h3>
+                    <p>Без посредников — экономия до 30% на каждой марке бетона</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon">🏭</div>
+                    <h3>Собственный завод</h3>
+                    <p>Контроль качества на каждом этапе. Сертификаты ГОСТ</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon">🚛</div>
+                    <h3>Свой автопарк</h3>
+                    <p>12 миксеров, 3 бетононасоса. Доставка без задержек</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon">⚡</div>
+                    <h3>Расчёт за 5 минут</h3>
+                    <p>Позвонили — получили цену — миксер в пути</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon">📋</div>
+                    <h3>Документы</h3>
+                    <p>Накладные, сертификаты, паспорта качества на каждую партию</p>
+                </div>
+                <div class="adv-card">
+                    <div class="adv-icon">🤝</div>
+                    <h3>900+ объектов</h3>
+                    <p>Нам доверяют строительные компании Кемерово и области</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICES TABLE -->
+    <section class="prices-section" id="prices">
+        <div class="container">
+            <h2>Цены на бетон</h2>
+            <p class="prices-subtitle">Все марки в наличии. Цена за 1 м³ с доставкой</p>
+            
+            <div class="prices-table-wrapper">
+                <table class="prices-table">
+                    <thead>
+                        <tr>
+                            <th>Марка</th>
+                            <th>Класс</th>
+                            <th>Применение</th>
+                            <th>Цена за м³</th>
+                            <th>Экономия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>М100</strong></td>
+                            <td>B7.5</td>
+                            <td>Подготовка основания, подушки</td>
+                            <td class="price-cell">5 800 ₽</td>
+                            <td class="save-cell">до 2 000 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М150</strong></td>
+                            <td>B12.5</td>
+                            <td>Стяжки, полы, дорожки</td>
+                            <td class="price-cell">6 100 ₽</td>
+                            <td class="save-cell">до 2 100 ₽</td>
+                        </tr>
+                        <tr class="popular">
+                            <td><strong>М200</strong></td>
+                            <td>B15</td>
+                            <td>Фундаменты, отмостки, лестницы</td>
+                            <td class="price-cell">6 400 ₽</td>
+                            <td class="save-cell">до 2 200 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М250</strong></td>
+                            <td>B20</td>
+                            <td>Фундаменты, плиты перекрытия</td>
+                            <td class="price-cell">6 800 ₽</td>
+                            <td class="save-cell">до 2 300 ₽</td>
+                        </tr>
+                        <tr class="popular">
+                            <td><strong>М300</strong></td>
+                            <td>B22.5</td>
+                            <td>Монолитные фундаменты, стены</td>
+                            <td class="price-cell">7 200 ₽</td>
+                            <td class="save-cell">до 2 400 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М350</strong></td>
+                            <td>B25</td>
+                            <td>Колонны, балки, бассейны</td>
+                            <td class="price-cell">7 600 ₽</td>
+                            <td class="save-cell">до 2 500 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М400</strong></td>
+                            <td>B30</td>
+                            <td>Мосты, хранилища, нагрузки</td>
+                            <td class="price-cell">8 000 ₽</td>
+                            <td class="save-cell">до 2 700 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>М450</strong></td>
+                            <td>B35</td>
+                            <td>Спецобъекты, высокие нагрузки</td>
+                            <td class="price-cell">8 400 ₽</td>
+                            <td class="save-cell">до 2 800 ₽</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="prices-note">* Точную стоимость уточняйте по телефону. Возможны скидки от 10 м³</p>
+        </div>
+    </section>
+
+    <!-- PROCESS -->
+    <section class="process-section" id="process">
+        <div class="container">
+            <h2>Как заказать бетон</h2>
+            <p class="process-subtitle">4 простых шага от звонка до заливки</p>
+            
+            <div class="process-grid">
+                <div class="process-card">
+                    <div class="process-num">1</div>
+                    <h3>Звонок</h3>
+                    <p>Позвоните нам или оставьте заявку. Расчёт за 5 минут.</p>
+                </div>
+                <div class="process-card">
+                    <div class="process-num">2</div>
+                    <h3>Подбор марки</h3>
+                    <p>Поможем выбрать нужную марку под ваш объект.</p>
+                </div>
+                <div class="process-card">
+                    <div class="process-num">3</div>
+                    <h3>Доставка</h3>
+                    <p>Миксер приедет в назначенный день и время.</p>
+                </div>
+                <div class="process-card">
+                    <div class="process-num">4</div>
+                    <h3>Заливка</h3>
+                    <p>Принимаете бетон, подписываете документы.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TRUST -->
+    <section class="trust-section" id="trust">
+        <div class="container">
+            <h2>Нам доверяют</h2>
+            <div class="trust-grid">
+                <div class="trust-card trust-big">
+                    <div class="trust-number">900+</div>
+                    <div class="trust-label">объектов построено</div>
+                </div>
+                <div class="trust-card">
+                    <div class="trust-number">12</div>
+                    <div class="trust-label">миксеров в автопарке</div>
+                </div>
+                <div class="trust-card">
+                    <div class="trust-number">24/7</div>
+                    <div class="trust-label">принимаем заявки</div>
+                </div>
+                <div class="trust-card trust-wide">
+                    <div class="trust-number">10+</div>
+                    <div class="trust-label">лет на рынке Кемерово</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- URGENCY -->
+    <section class="urgency-section">
+        <div class="container">
+            <div class="urgency-content">
+                <span class="urgency-icon">🔥</span>
+                <h2>Цена действует до конца недели!</h2>
+                <p>Зафиксируйте стоимость прямо сейчас. После повышения цен на цемент — бетон подорожает.</p>
+                <div class="urgency-timer" id="urgency-timer">
+                    <div class="timer-block">
+                        <span class="timer-num" id="timer-days">0</span>
+                        <span class="timer-label">дней</span>
+                    </div>
+                    <div class="timer-block">
+                        <span class="timer-num" id="timer-hours">0</span>
+                        <span class="timer-label">часов</span>
+                    </div>
+                    <div class="timer-block">
+                        <span class="timer-num" id="timer-mins">0</span>
+                        <span class="timer-label">минут</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="final-cta">
+        <div class="container">
+            <h2>Зафиксируйте цену на бетон</h2>
+            <p class="cta-subtitle">Оставьте номер — перезвоним за 2 минуты</p>
+            
+            <form class="cta-form" id="cta-form">
+                <div class="form-group">
+                    <input type="text" name="name" placeholder="Ваше имя" required>
+                </div>
+                <div class="form-group">
+                    <input type="tel" name="phone" placeholder="+7 (___) ___-__-__" required>
+                </div>
+                <div class="form-group">
+                    <select name="grade">
+                        <option value="">Выберите марку бетона</option>
+                        <option value="М100">М100 — 5 800 ₽/м³</option>
+                        <option value="М150">М150 — 6 100 ₽/м³</option>
+                        <option value="М200">М200 — 6 400 ₽/м³</option>
+                        <option value="М250">М250 — 6 800 ₽/м³</option>
+                        <option value="М300">М300 — 7 200 ₽/м³</option>
+                        <option value="М350">М350 — 7 600 ₽/м³</option>
+                        <option value="М400">М400 — 8 000 ₽/м³</option>
+                        <option value="М450">М450 — 8 400 ₽/м³</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-cta btn-large">Заказать бетон</button>
+            </form>
+            
+            <div class="cta-contacts">
+                <p>Или позвоните напрямую:</p>
+                <a href="tel:89039164040" class="cta-phone">8-903-916-40-40</a>
+                <p class="cta-address">ул. Грузовая, 21, Кемерово</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container footer-inner">
+            <div class="footer-logo">Транс<span>Микс</span></div>
+            <div class="footer-info">
+                <p>© 2026 ТрансМикс. Продажа бетона с доставкой по Кемерово.</p>
+                <p>ул. Грузовая, 21, Кемерово</p>
+            </div>
+            <div class="footer-contacts">
+                <a href="tel:89039164040">8-903-916-40-40</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
