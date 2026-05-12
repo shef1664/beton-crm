@@ -1,0 +1,82 @@
+{
+  "_meta": {
+    "description": "4 кампании Яндекс.Директ для бетон42.рф. Payload готов под POST https://api.direct.yandex.com/json/v5/campaigns method=add. После активации OAuth → curl push за минуту.",
+    "geo_kemerovo": 64,
+    "client_login": "shef1664"
+  },
+  "method": "add",
+  "params": {
+    "Campaigns": [
+      {
+        "Name": "Бетон42 — Флагман (Поиск, Кемерово)",
+        "StartDate": "2026-05-15",
+        "ClientInfo": "Бетон Экспресс — товарный бетон",
+        "DailyBudget": {
+          "Amount": 1500000000,
+          "Mode": "STANDARD"
+        },
+        "NegativeKeywords": {
+          "Items": [
+            "бесплатно", "своими руками", "рецепт", "состав", "пропорции",
+            "википедия", "курсовая", "реферат", "видео как", "учебник",
+            "новосибирск", "барнаул", "томск", "новокузнецк"
+          ]
+        },
+        "TextCampaign": {
+          "BiddingStrategy": {
+            "Search": {"BiddingStrategyType": "HIGHEST_POSITION"},
+            "Network": {"BiddingStrategyType": "SERVING_OFF"}
+          },
+          "Settings": [
+            {"Option": "ADD_TO_FAVORITES", "Value": "YES"},
+            {"Option": "ENABLE_EXTENDED_AD_TITLE", "Value": "YES"}
+          ]
+        }
+      },
+      {
+        "Name": "Бетон42 — Мини-миксер 3м³ (частники)",
+        "StartDate": "2026-05-15",
+        "ClientInfo": "Бетон Экспресс — мини-миксер",
+        "DailyBudget": {"Amount": 800000000, "Mode": "STANDARD"},
+        "NegativeKeywords": {"Items": ["бесплатно", "своими руками", "рецепт"]},
+        "TextCampaign": {
+          "BiddingStrategy": {
+            "Search": {"BiddingStrategyType": "HIGHEST_POSITION"},
+            "Network": {"BiddingStrategyType": "SERVING_OFF"}
+          }
+        }
+      },
+      {
+        "Name": "Бетон42 — Раствор (стяжка/кладка/штукатурка)",
+        "StartDate": "2026-05-15",
+        "ClientInfo": "Бетон Экспресс — раствор",
+        "DailyBudget": {"Amount": 500000000, "Mode": "STANDARD"},
+        "NegativeKeywords": {"Items": ["бесплатно", "своими руками", "видео"]},
+        "TextCampaign": {
+          "BiddingStrategy": {
+            "Search": {"BiddingStrategyType": "HIGHEST_POSITION"},
+            "Network": {"BiddingStrategyType": "SERVING_OFF"}
+          }
+        }
+      },
+      {
+        "Name": "Бетон42 — Автобетононасос (B2B)",
+        "StartDate": "2026-05-15",
+        "ClientInfo": "Бетон Экспресс — аренда насоса",
+        "DailyBudget": {"Amount": 700000000, "Mode": "STANDARD"},
+        "NegativeKeywords": {"Items": ["купить", "продаю", "видео", "своими руками"]},
+        "TextCampaign": {
+          "BiddingStrategy": {
+            "Search": {"BiddingStrategyType": "HIGHEST_POSITION"},
+            "Network": {"BiddingStrategyType": "SERVING_OFF"}
+          }
+        }
+      }
+    ]
+  },
+  "_notes": {
+    "DailyBudget.Amount": "в микро-валюте: 1 ₽ = 1 000 000. 1500000000 = 1500 ₽/день.",
+    "Geo": "Применяется отдельно через Campaigns.update с массивом [64] (Кемеровская область).",
+    "Bidding": "Стартуем с HIGHEST_POSITION (ручные позиции). После 2 недель данных переключаем на CONVERSION с целью submit_lead из Метрики."
+  }
+}
