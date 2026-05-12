@@ -28,14 +28,17 @@ def _load_json_map(env_name: str) -> dict:
 
 
 class Settings:
-    AMOCRM_DOMAIN: str = os.getenv("AMOCRM_DOMAIN", "")
+    # Public subdomain — not a secret, default is OK to commit
+    AMOCRM_DOMAIN: str = os.getenv("AMOCRM_DOMAIN", "shef1664.amocrm.ru")
     AMOCRM_CLIENT_ID: str = os.getenv("AMOCRM_CLIENT_ID", "")
     AMOCRM_CLIENT_SECRET: str = os.getenv("AMOCRM_CLIENT_SECRET", "")
     AMOCRM_REDIRECT_URI: str = os.getenv("AMOCRM_REDIRECT_URI", "")
     AMOCRM_ACCESS_TOKEN: str = os.getenv("AMOCRM_ACCESS_TOKEN", "")
-    AMOCRM_PIPELINE_ID: int = int(os.getenv("AMOCRM_PIPELINE_ID", "0"))
+    # Public pipeline ID for shef1664.amocrm.ru — not a secret
+    AMOCRM_PIPELINE_ID: int = int(os.getenv("AMOCRM_PIPELINE_ID", "10818570"))
 
-    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
+    # Public production URL — not a secret. Local dev still overrides via .env.
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "https://beton-backend-wr3w.onrender.com")
     API_SECRET_KEY: str = os.getenv("API_SECRET_KEY", "change-me-in-production")
 
     TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
