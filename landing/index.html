@@ -1582,6 +1582,11 @@ button, input[type="submit"], a.btn { -webkit-appearance: none; appearance: none
     <form class="lead__form" id="lead-form" onsubmit="event.preventDefault();leadSubmit();">
       <h3>Заявка на&nbsp;бетон</h3>
       <p style="margin:-4px 0 8px;color:var(--muted);font-size:14px;">Заполните 3&nbsp;поля&nbsp;— перезвоним в&nbsp;течение 25&nbsp;минут.</p>
+      <!-- Honeypot — invisible field that bots fill, humans do not see. Backend rejects if filled. -->
+      <div aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden;">
+        <label for="lf-company-website">Веб-сайт компании (не заполнять)</label>
+        <input id="lf-company-website" name="company_website" type="text" tabindex="-1" autocomplete="off" />
+      </div>
       <div class="field">
         <label for="lf-name">Имя</label>
         <input id="lf-name" name="name" required placeholder="Алексей" />
@@ -1771,6 +1776,7 @@ async function leadSubmit() {
   btn.disabled = true;
 
   const utm = new URLSearchParams(location.search);
+  const honeypotEl = document.getElementById("lf-company-website");
   const payload = {
     name,
     phone: normalizePhone(phone),
@@ -1785,6 +1791,7 @@ async function leadSubmit() {
     utm_medium: utm.get("utm_medium") || undefined,
     utm_campaign: utm.get("utm_campaign") || undefined,
     client_type: "private",
+    company_website: honeypotEl ? honeypotEl.value : "",  // honeypot — must be empty
   };
 
   let isDuplicate = false;
