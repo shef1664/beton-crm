@@ -49,6 +49,10 @@ class Settings:
     BASEROW_LEADS_TABLE_ID: int = int(os.getenv("BASEROW_LEADS_TABLE_ID", "0"))
     BASEROW_LOGS_TABLE_ID: int = int(os.getenv("BASEROW_LOGS_TABLE_ID", "0"))
 
+    # Yandex.Metrika counter ID. Set via env to enable analytics on landing.
+    # Public value (counter id видно в исходниках сайта в любом случае).
+    YANDEX_METRIKA_ID: str = os.getenv("YANDEX_METRIKA_ID", "")
+
     BETON_PRICES: dict = {
         "М100": 5800,
         "М150": 6100,
