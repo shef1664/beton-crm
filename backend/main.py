@@ -24,6 +24,7 @@ from services.calculator import BetonCalculator
 from services.duplicate_checker import DuplicateChecker
 from services.lead_utils import coerce_amount
 from services.notifier import TelegramNotifier
+from services.notion import NotionLeadsSync
 from services.integration_adapters import IntegrationAdapters
 from services.sales_automation import SalesAutomationService
 
@@ -51,6 +52,7 @@ amocrm = AmoCRMService()
 baserow = BaserowService()
 calculator = BetonCalculator()
 notifier = TelegramNotifier()
+notion_leads = NotionLeadsSync()
 duplicate_checker = DuplicateChecker(amocrm, baserow)
 sales_automation = SalesAutomationService()
 
@@ -494,6 +496,11 @@ async def create_lead(lead_data: LeadCreate):
             }
         )
         await notifier.notify_new_lead(lead_payload, lead_id)
+        # Non-blocking Notion sync — failures are logged but do not break the lead pipeline
+        try:
+            await notion_leads.push_lead(lead_payload, lead_id)
+        except Exception as notion_exc:
+            logger.warning("Notion sync failed (non-fatal): %s", notion_exc)
 
         return {
             "status": "success",
