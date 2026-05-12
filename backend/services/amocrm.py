@@ -135,15 +135,35 @@ class AmoCRMService:
                 embedded_contacts = contact_response.json()["_embedded"]
                 contact_id = (embedded_contacts.get("contacts") or embedded_contacts.get("items"))[0]["id"]
 
-                source_label = lead_data.get("source_platform") or lead_data.get("source") or "lead"
                 custom_fields_values = self._build_custom_fields(lead_data)
+
+                # Имя сделки: «<Клиент> — <Марка>, <Объём> м³» без префикса источника
+                # (источник уже в кастомном поле source_platform, дублировать в title не нужно)
+                client_name = lead_data.get("name", "Лид без имени")
+                grade = lead_data.get("concrete_grade")
+                volume = lead_data.get("volume")
+                name_parts = [client_name]
+                spec = []
+                if grade:
+                    spec.append(str(grade))
+                if volume:
+                    spec.append(f"{volume} м³")
+                if spec:
+                    name_parts.append(", ".join(spec))
+                lead_name = " — ".join(name_parts)
+
+                # price (сумма сделки) маппится из calculated_amount если задан
+                lead_price = 0
+                if lead_data.get("calculated_amount") is not None:
+                    try:
+                        lead_price = int(round(float(lead_data["calculated_amount"])))
+                    except (TypeError, ValueError):
+                        lead_price = 0
+
                 lead_payload = [
                     {
-                        "name": (
-                            f"{source_label}: "
-                            f"{lead_data.get('name', 'No name')} - "
-                            f"{lead_data.get('concrete_grade', 'No grade')}"
-                        ),
+                        "name": lead_name,
+                        "price": lead_price,
                         "pipeline_id": settings.AMOCRM_PIPELINE_ID,
                         "status_id": settings.PIPELINE_STATUSES["new"],
                         "_embedded": {"contacts": [{"id": contact_id}]},
