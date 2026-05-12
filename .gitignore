@@ -47,3 +47,6 @@ temporary-screenshots/
 # SQLite
 *.db
 backend/data/
+# Whitelist non-sensitive structured payloads
+!backend/data/direct/
+!backend/data/direct/**
