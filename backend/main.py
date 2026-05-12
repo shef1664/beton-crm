@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -141,17 +141,36 @@ if VARIANTS_DIR.exists():
     app.mount("/variants", StaticFiles(directory=str(VARIANTS_DIR), html=True), name="variants")
 
 
-@app.get("/")
+def _metrika_snippet(counter_id: str) -> str:
+    """Standard Yandex.Metrika tag with webvisor + clickmap + accurate bounce."""
+    return f"""
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+(function(m,e,t,r,i,k,a){{m[i]=m[i]||function(){{(m[i].a=m[i].a||[]).push(arguments)}};m[i].l=1*new Date();
+for (var j=0;j<document.scripts.length;j++){{if(document.scripts[j].src===r){{return;}}}}
+k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)}})
+(window,document,"script","https://mc.yandex.ru/metrika/tag.js?id={counter_id}","ym");
+ym({counter_id}, "init", {{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true}});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/{counter_id}" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+""".strip()
+
+
+@app.get("/", response_class=HTMLResponse)
 async def root():
     index = LANDING_DIR / "index.html"
-    if index.exists():
-        return FileResponse(str(index), media_type="text/html")
-    return {
-        "status": "ok",
-        "service": "Бетон Backend API",
-        "version": "1.0.0",
-        "amoCRM": "connected" if amocrm.is_available() else "not configured",
-    }
+    if not index.exists():
+        return {
+            "status": "ok",
+            "service": "Бетон Backend API",
+            "version": "1.0.0",
+            "amoCRM": "connected" if amocrm.is_available() else "not configured",
+        }
+    html = index.read_text(encoding="utf-8")
+    if settings.YANDEX_METRIKA_ID:
+        html = html.replace("</head>", _metrika_snippet(settings.YANDEX_METRIKA_ID) + "\n</head>", 1)
+    return HTMLResponse(content=html, media_type="text/html; charset=utf-8")
 
 
 @app.get("/privacy.html")
