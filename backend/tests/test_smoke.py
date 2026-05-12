@@ -32,6 +32,13 @@ def test_privacy_page(app_client):
     assert "Политика" in r.text or "персональн" in r.text
 
 
+def test_landing_11111_variant_served(app_client):
+    r = app_client.get("/variants/landing-11111/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "landing-11111" in r.text
+
+
 def test_api_config(app_client):
     r = app_client.get("/api/config")
     assert r.status_code == 200
