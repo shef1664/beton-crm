@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,6 +27,7 @@ from services.notifier import TelegramNotifier
 from services.notion import NotionLeadsSync
 from services.integration_adapters import IntegrationAdapters
 from services.sales_automation import SalesAutomationService
+from services.anti_spam import HONEYPOT_FIELD, get_client_ip, is_honeypot_triggered, lead_limiter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -88,6 +89,8 @@ class LeadCreate(BaseModel):
     qualification_script: Optional[str] = Field(None, description="Подсказка для квалификации")
     sla_minutes: Optional[int] = Field(None, description="SLA на первый контакт")
     contact_deadline_at: Optional[str] = Field(None, description="Крайний срок первого контакта")
+    # Honeypot — invisible field. Bots fill it, humans don't see it. Backend rejects if non-empty.
+    company_website: Optional[str] = Field(None, description="Honeypot field, must stay empty")
 
     @field_validator("calculated_amount", mode="before")
     @classmethod
@@ -429,9 +432,22 @@ def _integration_key_valid(integration: str, provided_key: Optional[str]) -> boo
 
 
 @app.post("/api/leads/create", status_code=201)
-async def create_lead(lead_data: LeadCreate):
+async def create_lead(lead_data: LeadCreate, request: Request):
     try:
-        logger.info("Новый лид: %s, %s", lead_data.name, lead_data.phone)
+        # 1) Honeypot — invisible field that bots fill but humans don't see
+        if is_honeypot_triggered(lead_data.model_dump()):
+            client_ip = get_client_ip(request)
+            logger.warning("Honeypot triggered — bot detected (ip=%s, phone=%s)", client_ip, lead_data.phone)
+            # Pretend success — don't leak honeypot existence
+            return {"status": "success", "lead_id": 0, "amo_lead_created": False, "message": "Заявка принята! Перезвоним за 5 минут."}
+
+        # 2) Rate limit — 5 leads per minute per IP
+        client_ip = get_client_ip(request)
+        if not lead_limiter.allow(client_ip):
+            logger.warning("Rate limit exceeded for %s", client_ip)
+            raise HTTPException(status_code=429, detail="Too many requests, try again in a minute")
+
+        logger.info("Новый лид: %s, %s (ip=%s)", lead_data.name, lead_data.phone, client_ip)
 
         duplicate_id = await duplicate_checker.check(lead_data.phone)
         if duplicate_id:
