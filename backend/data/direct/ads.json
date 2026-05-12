@@ -1,0 +1,92 @@
+{
+  "_meta": "Объявления (TextAd) для 4 кампаний. По 3 варианта в Флагмане для A/B; по 1 в остальных. Заменить <AD_GROUP_ID> на реальные.",
+
+  "campaign_1_flagship": {
+    "ads": [
+      {
+        "variant": "A — цена-фокус",
+        "AdGroupId": "<AD_GROUP_ID_FLAGSHIP>",
+        "TextAd": {
+          "Title": "Бетон в Кемерово от 5800 ₽/м³",
+          "Title2": "Завод. Паспорт. Миксер 3–10 м³",
+          "Text": "М100–М450, доставка 24/7 по Кузбассу. Мини-миксер въезжает в любой проезд. Расчёт за 5 минут.",
+          "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/?utm_source=yandex&utm_medium=cpc&utm_campaign=flagship&utm_content=variant_a",
+          "DisplayUrlPath": "betonkemerovo",
+          "SitelinkSetId": "<SITELINK_SET_ID>"
+        }
+      },
+      {
+        "variant": "B — скорость-фокус",
+        "AdGroupId": "<AD_GROUP_ID_FLAGSHIP>",
+        "TextAd": {
+          "Title": "Бетон с доставкой за 2 часа",
+          "Title2": "Мини-миксер 3 м³ — любой проезд",
+          "Text": "Свой завод и парк миксеров в Кемерово. М100–М400. Круглосуточно, без выходных. От 3 м³.",
+          "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/?utm_source=yandex&utm_medium=cpc&utm_campaign=flagship&utm_content=variant_b"
+        }
+      },
+      {
+        "variant": "C — доверие-фокус",
+        "AdGroupId": "<AD_GROUP_ID_FLAGSHIP>",
+        "TextAd": {
+          "Title": "Завод-производитель бетона",
+          "Title2": "10 лет, 350+ объектов, ГОСТ",
+          "Text": "Товарный бетон М100–М450. Лаборатория, паспорт качества к каждому рейсу. Письменная гарантия марки.",
+          "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/?utm_source=yandex&utm_medium=cpc&utm_campaign=flagship&utm_content=variant_c"
+        }
+      }
+    ]
+  },
+
+  "campaign_2_mini_mixer": {
+    "ads": [
+      {
+        "AdGroupId": "<AD_GROUP_ID_MINI>",
+        "TextAd": {
+          "Title": "Мини-миксер 3 м³ — въедет везде",
+          "Title2": "Бетон от 3 кубов с доставкой",
+          "Text": "Для частных участков, СНТ, узких дворов. Hino Ranger 3 м³. М100–М400. Кемерово и пригород.",
+          "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/?utm_source=yandex&utm_medium=cpc&utm_campaign=mini-mixer"
+        }
+      }
+    ]
+  },
+
+  "campaign_3_mortar": {
+    "ads": [
+      {
+        "AdGroupId": "<AD_GROUP_ID_MORTAR>",
+        "TextAd": {
+          "Title": "Раствор М100–М200 с доставкой",
+          "Title2": "Стяжка, кладка, штукатурка — Кемерово",
+          "Text": "ЦПС на ваш объект. Миксеры 3, 6, 7, 10 м³. Подача насосом до 42 м. Цена за куб ниже мешков.",
+          "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/?utm_source=yandex&utm_medium=cpc&utm_campaign=mortar"
+        }
+      }
+    ]
+  },
+
+  "campaign_4_pump": {
+    "ads": [
+      {
+        "AdGroupId": "<AD_GROUP_ID_PUMP>",
+        "TextAd": {
+          "Title": "Автобетононасос 28–42 м с оператором",
+          "Title2": "Аренда от 4 ч. Топливо и оператор",
+          "Text": "Бетонная стрела до 42 м. Подача на 10+ этажей. Кемерово, круглосуточно. Скидка при заказе бетона.",
+          "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/?utm_source=yandex&utm_medium=cpc&utm_campaign=pump-rental"
+        }
+      }
+    ]
+  },
+
+  "_dynamic_quick_links": {
+    "comment": "Быстрые ссылки (Sitelinks) — отдельный объект SitelinkSet, добавляется через Sitelinks.add",
+    "Sitelinks": [
+      {"Title": "Калькулятор", "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/#calculator"},
+      {"Title": "Прайс марок", "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/#prices"},
+      {"Title": "Карта доставки", "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/#map"},
+      {"Title": "О заводе", "Href": "https://xn--42-9kcq4bf1a.xn--p1ai/#about"}
+    ]
+  }
+}
