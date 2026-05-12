@@ -17,9 +17,13 @@ Production-система отдела продаж для ООО «ПУЛЬСА
 | CDN | Cloudflare (front of Render) | ✅ |
 | SSL | Let's Encrypt | ✅ авто |
 | GitHub | https://github.com/shef1664/beton-crm | ✅ master = production |
-| AmoCRM | https://shef1664.amocrm.ru | ⚠️ 402 — токен валиден до 2027, но запись блокирована тарифом |
+| AmoCRM | https://shef1664.amocrm.ru | ✅ демо продлено, AMOCRM_ACCESS_TOKEN в Render env. Лиды реально создаются (price=calc_amount, name «Клиент — М300, 6 м³») |
 | Telegram бот | @otdprod_bot (id 8724634676) | ✅ уведомления приходят, admin_id 150420 |
 | База лидов | SQLite на Render | ✅ fallback от AmoCRM работает |
+| Notion auto-sync лидов | `backend/services/notion.py` → база 📥 Лиды | ⏳ ждёт `NOTION_API_TOKEN` env var |
+| Яндекс.Метрика | env-driven injection в backend (`YANDEX_METRIKA_ID`) | ⏳ ждёт 8-значный counter_id |
+| Yandex.Direct | план: 4 кампании, 105k ₽/мес, тест 7k/7 дн | 📋 см. docs/YANDEX_DIRECT_LAUNCH_PLAN.md |
+| Render API ключ | сохранён в ~/.secrets/render.json | ✅ env vars выставляются через API без user UI |
 
 ## Карта файлов
 
