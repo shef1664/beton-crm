@@ -139,6 +139,11 @@ class WorkqueueContactRequest(BaseModel):
 
 LANDING_DIR = Path(__file__).resolve().parent.parent / "landing"
 VARIANTS_DIR = Path(__file__).resolve().parent.parent / "variants"
+LANDING_11111_DIR = VARIANTS_DIR / "landing-11111"
+LANDING_11111_HOSTS = {
+    "11111.бетон42.рф",
+    "11111.xn--42-9kcq4bf1a.xn--p1ai",
+}
 
 if (LANDING_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(LANDING_DIR / "assets")), name="assets")
@@ -162,9 +167,28 @@ ym({counter_id}, "init", {{clickmap:true,trackLinks:true,accurateTrackBounce:tru
 """.strip()
 
 
+def _host_without_port(request: Request) -> str:
+    return request.headers.get("host", "").split(":", 1)[0].lower()
+
+
+def _resolve_landing_dir(request: Request) -> Path:
+    host = _host_without_port(request)
+    if host in LANDING_11111_HOSTS:
+        return LANDING_11111_DIR
+    return LANDING_DIR
+
+
+def _html_with_metrika(index: Path) -> HTMLResponse:
+    html = index.read_text(encoding="utf-8")
+    if settings.YANDEX_METRIKA_ID:
+        html = html.replace("</head>", _metrika_snippet(settings.YANDEX_METRIKA_ID) + "\n</head>", 1)
+    return HTMLResponse(content=html, media_type="text/html; charset=utf-8")
+
+
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    index = LANDING_DIR / "index.html"
+async def root(request: Request):
+    landing_dir = _resolve_landing_dir(request)
+    index = landing_dir / "index.html"
     if not index.exists():
         return {
             "status": "ok",
@@ -172,17 +196,14 @@ async def root():
             "version": "1.0.0",
             "amoCRM": "connected" if amocrm.is_available() else "not configured",
         }
-    html = index.read_text(encoding="utf-8")
-    if settings.YANDEX_METRIKA_ID:
-        html = html.replace("</head>", _metrika_snippet(settings.YANDEX_METRIKA_ID) + "\n</head>", 1)
-    return HTMLResponse(content=html, media_type="text/html; charset=utf-8")
+    return _html_with_metrika(index)
 
 
 @app.get("/privacy.html")
 @app.get("/privacy")
-async def privacy_policy():
+async def privacy_policy(request: Request):
     """Политика обработки персональных данных (152-ФЗ)."""
-    policy = LANDING_DIR / "privacy.html"
+    policy = _resolve_landing_dir(request) / "privacy.html"
     if policy.exists():
         return FileResponse(str(policy), media_type="text/html; charset=utf-8")
     raise HTTPException(status_code=404, detail="privacy policy not found")
