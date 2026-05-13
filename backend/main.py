@@ -141,6 +141,10 @@ LANDING_DIR = Path(__file__).resolve().parent.parent / "landing"
 VARIANTS_DIR = Path(__file__).resolve().parent.parent / "variants"
 LANDING_11111_DIR = VARIANTS_DIR / "landing-11111"
 LANDING_11111_HOSTS = {
+    "бетонсегодня.рф",
+    "www.бетонсегодня.рф",
+    "xn--90aedca1cddd1ai8n.xn--p1ai",
+    "www.xn--90aedca1cddd1ai8n.xn--p1ai",
     "11111.бетон42.рф",
     "11111.xn--42-9kcq4bf1a.xn--p1ai",
 }
@@ -172,6 +176,12 @@ def _host_without_port(request: Request) -> str:
 
 
 def _resolve_landing_dir(request: Request) -> Path:
+    default_variant = settings.DEFAULT_LANDING_VARIANT.strip().strip("/")
+    if default_variant:
+        variant_dir = VARIANTS_DIR / default_variant
+        if variant_dir.exists():
+            return variant_dir
+
     host = _host_without_port(request)
     if host in LANDING_11111_HOSTS:
         return LANDING_11111_DIR
