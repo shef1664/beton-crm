@@ -143,6 +143,8 @@ LANDING_11111_DIR = VARIANTS_DIR / "landing-11111"
 LANDING_11111_HOSTS = {
     "11111.бетон42.рф",
     "11111.xn--42-9kcq4bf1a.xn--p1ai",
+    "бетонсегодня.рф",
+    "xn--90aedca1cddd1ai8n.xn--p1ai",
 }
 
 if (LANDING_DIR / "assets").exists():

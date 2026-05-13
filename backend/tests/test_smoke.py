@@ -47,8 +47,22 @@ def test_landing_11111_served_on_subdomain_host(app_client):
     assert "Бетон Сегодня" in r.text
 
 
+def test_landing_11111_served_on_beton_segodnya_domain(app_client):
+    r = app_client.get("/", headers={"host": "xn--90aedca1cddd1ai8n.xn--p1ai"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "landing-11111" in r.text
+    assert "Бетон Сегодня" in r.text
+
+
 def test_landing_11111_privacy_served_on_subdomain_host(app_client):
     r = app_client.get("/privacy.html", headers={"host": "11111.xn--42-9kcq4bf1a.xn--p1ai"})
+    assert r.status_code == 200
+    assert "Политика" in r.text or "персональн" in r.text
+
+
+def test_landing_11111_privacy_served_on_beton_segodnya_domain(app_client):
+    r = app_client.get("/privacy.html", headers={"host": "xn--90aedca1cddd1ai8n.xn--p1ai"})
     assert r.status_code == 200
     assert "Политика" in r.text or "персональн" in r.text
 
