@@ -40,6 +40,7 @@ class Settings:
     # Public production URL — not a secret. Local dev still overrides via .env.
     BACKEND_URL: str = os.getenv("BACKEND_URL", "https://beton-backend-wr3w.onrender.com")
     API_SECRET_KEY: str = os.getenv("API_SECRET_KEY", "change-me-in-production")
+    DEFAULT_LANDING_VARIANT: str = os.getenv("DEFAULT_LANDING_VARIANT", "")
 
     TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_ADMIN_ID: int = int(os.getenv("TELEGRAM_ADMIN_ID", "150420"))
