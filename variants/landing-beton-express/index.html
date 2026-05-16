@@ -406,7 +406,7 @@ h2 { font-weight: 900; letter-spacing: -0.02em; }
 }
 .calc__tab[aria-selected="true"] small { color: var(--y); opacity: 1; }
 
-.calc__panel { padding: 36px clamp(24px, 4vw, 48px); display: grid; grid-template-columns: 1fr 320px; gap: 32px; }
+.calc__panel { padding: 36px clamp(24px, 4vw, 48px); display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px; }
 .calc__form { display: grid; gap: 18px; align-content: start; }
 .calc__form h3 { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 4px; }
 .calc__form .hint { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
