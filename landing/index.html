@@ -1737,6 +1737,14 @@ function recompute() {
   const cta = document.getElementById("calc-cta");
   const summary = `${def.title}: ${fmt(vBuf)} м³ (с запасом 5%), ${def.grade}, ${pickMixer(vBuf)}`;
   cta.dataset.summary = summary;
+  cta.dataset.volume = String(vBuf.toFixed(2));
+  cta.dataset.grade = def.grade;
+
+  // Автозаполнение поля "Что нужно" если пользователь его не трогал
+  const lfTask = document.getElementById("lf-task");
+  if (lfTask && !lfTask.dataset.userEdited) {
+    lfTask.value = summary;
+  }
 }
 
 tabs.forEach(t => t.addEventListener("click", () => renderForm(t.dataset.form)));
@@ -1746,6 +1754,12 @@ document.getElementById("calc-cta").addEventListener("click", (e) => {
   const ta = document.getElementById("lf-task");
   if (summary && ta) ta.value = summary;
 });
+
+// Если пользователь сам печатает в поле "Что нужно", больше не автозаполняем
+const lfTaskEl = document.getElementById("lf-task");
+if (lfTaskEl) {
+  lfTaskEl.addEventListener("input", () => { lfTaskEl.dataset.userEdited = "1"; });
+}
 
 renderForm("strip");
 
@@ -1775,10 +1789,16 @@ async function leadSubmit() {
 
   const utm = new URLSearchParams(location.search);
   const honeypotEl = document.getElementById("lf-company-website");
+  const ctaEl = document.getElementById("calc-cta");
+  const calcVolume = ctaEl ? parseFloat(ctaEl.dataset.volume || "") : NaN;
+  const calcGrade = ctaEl ? ctaEl.dataset.grade : "";
+
   const payload = {
     name,
     phone: normalizePhone(phone),
-    comment: task || undefined,
+    comment: task || (ctaEl ? ctaEl.dataset.summary : "") || undefined,
+    volume: Number.isFinite(calcVolume) && calcVolume > 0 ? calcVolume : undefined,
+    concrete_grade: calcGrade || undefined,
     source: "landing-beton-express",
     source_platform: "site",
     source_channel: "form",
