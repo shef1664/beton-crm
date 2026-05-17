@@ -25,6 +25,7 @@ from services.duplicate_checker import DuplicateChecker
 from services.lead_utils import coerce_amount
 from services.notifier import TelegramNotifier
 from services.notion import NotionLeadsSync
+from services.scheduled_tasks import start_scheduled_tasks
 from services.integration_adapters import IntegrationAdapters
 from services.sales_automation import SalesAutomationService
 from services.anti_spam import HONEYPOT_FIELD, get_client_ip, is_honeypot_triggered, lead_limiter
@@ -775,6 +776,11 @@ async def startup_event():
     logger.info("   amoCRM: %s", "configured" if amocrm.is_available() else "not configured")
     logger.info("   storage: %s", "ready" if baserow.is_available() else "not ready")
     logger.info("   Telegram: %s", "configured" if notifier.is_available() else "not configured")
+    # Scheduled tasks: keepalive (Render Free wake-up) + daily Telegram summary
+    self_url = os.getenv("BACKEND_URL", "")
+    if self_url:
+        start_scheduled_tasks(self_url)
+        logger.info("   Scheduled: keepalive + daily summary enabled")
     bot_started = await start_telegram_bot()
     logger.info("   Telegram bot: %s", "started" if bot_started else "disabled or unavailable")
     logger.info("Backend API ready")
