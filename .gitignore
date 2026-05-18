@@ -50,3 +50,6 @@ backend/data/
 # Whitelist non-sensitive structured payloads
 !backend/data/direct/
 !backend/data/direct/**
+!backend/data/robots.txt
+!backend/data/sitemap.xml
+!backend/data/sitemap-segodnya.xml
