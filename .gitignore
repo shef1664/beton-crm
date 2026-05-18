@@ -46,8 +46,7 @@ temporary-screenshots/
 
 # SQLite
 *.db
-backend/data/
-# Whitelist non-sensitive structured payloads
+backend/data/*
 !backend/data/direct/
 !backend/data/direct/**
 !backend/data/robots.txt
