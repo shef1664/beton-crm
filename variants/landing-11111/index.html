@@ -1122,5 +1122,42 @@
     return false;
   }
 </script>
+<script>
+/* ===================== Yandex.Metrika global goals ===================== */
+(function(){
+  try {
+    const sc = document.querySelector('script[src*="mc.yandex.ru/metrika/tag.js?id="]');
+    if (sc) {
+      const m = sc.src.match(/id=(\d+)/);
+      if (m) window.__YM_ID = parseInt(m[1], 10);
+    }
+  } catch(_) {}
+
+  function goal(name) {
+    try { if (window.ym && window.__YM_ID) ym(window.__YM_ID, 'reachGoal', name); } catch(_) {}
+  }
+
+  document.addEventListener('click', function(e){
+    const a = e.target.closest('a[href]');
+    if (!a) return;
+    const h = a.getAttribute('href') || '';
+    if (h.startsWith('tel:')) goal('phone_click');
+    else if (h.includes('wa.me') || h.includes('whatsapp.com')) goal('whatsapp_click');
+    else if (h.includes('t.me/') || h.includes('telegram.me')) goal('telegram_click');
+    else if (h.includes('max.ru') || h.startsWith('max:')) goal('max_click');
+  }, { passive: true });
+
+  let scroll75 = false;
+  window.addEventListener('scroll', function(){
+    if (scroll75) return;
+    const sc = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight;
+    if (sc > 0.75) { scroll75 = true; goal('scroll_75'); }
+  }, { passive: true });
+
+  setTimeout(() => goal('time_60s'), 60000);
+
+  window.__ym_goal = goal;
+})();
+</script>
 </body>
 </html>
