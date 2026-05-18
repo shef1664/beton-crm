@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /webhooks/
+Disallow: /test
+
+Sitemap: https://xn--42-9kcq4bf1a.xn--p1ai/sitemap.xml
+Sitemap: https://xn--90aedca1cddd1ai8n.xn--p1ai/sitemap.xml
+
+Host: xn--42-9kcq4bf1a.xn--p1ai
