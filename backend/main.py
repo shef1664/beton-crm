@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -218,6 +218,24 @@ async def privacy_policy(request: Request):
     if policy.exists():
         return FileResponse(str(policy), media_type="text/html; charset=utf-8")
     raise HTTPException(status_code=404, detail="privacy policy not found")
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def get_robots():
+    p = Path(__file__).parent / "data" / "robots.txt"
+    if p.exists():
+        return PlainTextResponse(p.read_text(encoding="utf-8"), media_type="text/plain")
+    return PlainTextResponse("User-agent: *\nAllow: /\n", media_type="text/plain")
+
+
+@app.get("/sitemap.xml")
+async def get_sitemap(request: Request):
+    host = _host_without_port(request)
+    name = "sitemap-segodnya.xml" if host in LANDING_11111_HOSTS else "sitemap.xml"
+    p = Path(__file__).parent / "data" / name
+    if p.exists():
+        return Response(content=p.read_text(encoding="utf-8"), media_type="application/xml; charset=utf-8")
+    return Response(content="<?xml version='1.0' encoding='UTF-8'?><urlset/>", media_type="application/xml; charset=utf-8")
 
 
 @app.get("/ping")
