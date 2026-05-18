@@ -338,6 +338,34 @@
   .topbar__phone-mob { display: none; }
   @media (max-width: 720px) { .topbar__phone-mob { display: inline-flex; } }
 </style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "@id": "https://xn--90aedca1cddd1ai8n.xn--p1ai/#org",
+  "name": "Бетон Сегодня",
+  "image": "https://xn--90aedca1cddd1ai8n.xn--p1ai/assets/logo.png",
+  "url": "https://xn--90aedca1cddd1ai8n.xn--p1ai/",
+  "telephone": "+78423446633",
+  "priceRange": "₽₽",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "ул. Базовая, 5Б, оф. 212",
+    "addressLocality": "Кемерово",
+    "addressRegion": "Кемеровская область",
+    "postalCode": "650024",
+    "addressCountry": "RU"
+  },
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+    "opens": "00:00",
+    "closes": "23:59"
+  },
+  "description": "Бетон 1-6 м³ с доставкой сегодня по Кемерово. Мини-миксер 3 м³.",
+  "areaServed": {"@type":"City","name":"Кемерово"}
+}
+</script>
 </head>
 <body>
 
@@ -1012,6 +1040,10 @@
       <span>© 2026 Бетон Сегодня · Кемерово</span>
       <a href="privacy.html">Политика обработки персональных данных</a>
     </div>
+    <div class="foot-legal" style="margin-top:14px;font-size:11px;color:var(--muted);line-height:1.55;">
+      ООО «ПУЛЬСАР» · ИНН 4205271841 · ОГРН 1134205019156 · Кемерово, ул. Базовая, 5Б, оф. 212<br>
+      Информация на сайте не является публичной офертой. Цены ориентировочные, итог — по расчёту менеджера.
+    </div>
   </div>
 </footer>
 
@@ -1109,6 +1141,10 @@
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json().catch(() => ({}));
+      try {
+        const goalName = result.status === "duplicate" ? 'form_duplicate' : 'form_submit';
+        if (window.__ym_goal) window.__ym_goal(goalName);
+      } catch(_) {}
       btn.innerHTML = result.status === "duplicate"
         ? 'Заявка уже есть · скоро перезвоним'
         : 'Заявка принята · перезвоним в течение 10 минут';
