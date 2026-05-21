@@ -157,20 +157,26 @@ class AvitoService:
                 continue
             # Messages come newest first; iterate oldest first to update state correctly
             seen_for_chat = last_seen.get(chat_id, "")
+            first_time_seeing_chat = chat_id not in last_seen
+
             for msg in reversed(messages):
                 msg_id = msg.get("id", "")
-                if not msg_id or msg_id == seen_for_chat:
+                if not msg_id:
+                    continue
+                if seen_for_chat and msg_id <= seen_for_chat:
+                    continue
+                # Always update state cursor so we don't reprocess
+                last_seen[chat_id] = msg_id
+                # First time seeing this chat: bootstrap — record state but
+                # do not create leads from history (avoid flooding AmoCRM)
+                if first_time_seeing_chat:
                     continue
                 # Skip our own outgoing messages
                 author_id = str(msg.get("author_id") or "")
                 if author_id == str(self.user_id):
-                    last_seen[chat_id] = msg_id
-                    continue
-                if seen_for_chat and msg_id <= seen_for_chat:
                     continue
                 msg["_chat"] = chat
                 new_messages.append(msg)
-                last_seen[chat_id] = msg_id
 
         state["last_seen"] = last_seen
         self._save_state(state)
