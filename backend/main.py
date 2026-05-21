@@ -3,6 +3,7 @@ Backend for the concrete sales funnel.
 The architecture stays the same: landing -> backend -> amoCRM/storage/notifications.
 """
 
+import asyncio
 from datetime import datetime
 import json
 import logging
@@ -26,6 +27,7 @@ from services.lead_utils import coerce_amount
 from services.notifier import TelegramNotifier
 from services.notion import NotionLeadsSync
 from services.scheduled_tasks import start_scheduled_tasks
+from services.avito_poller import avito_poll_loop
 from services.integration_adapters import IntegrationAdapters
 from services.sales_automation import SalesAutomationService
 from services.anti_spam import HONEYPOT_FIELD, get_client_ip, is_honeypot_triggered, lead_limiter
@@ -799,6 +801,9 @@ async def startup_event():
     if self_url:
         start_scheduled_tasks(self_url)
         logger.info("   Scheduled: keepalive + daily summary enabled")
+    if os.getenv("AVITO_CLIENT_ID"):
+        asyncio.create_task(avito_poll_loop(amocrm))
+        logger.info("   Avito poller: enabled")
     bot_started = await start_telegram_bot()
     logger.info("   Telegram bot: %s", "started" if bot_started else "disabled or unavailable")
     logger.info("Backend API ready")
