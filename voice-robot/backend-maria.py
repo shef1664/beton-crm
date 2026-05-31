@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 import requests
 
 # Импортируем Марию
@@ -46,6 +46,8 @@ AMOCRM_TRANSFER_STATUS_ID = os.getenv("AMOCRM_TRANSFER_STATUS_ID", "85162982")
 VOICE_TAG = "voice-bot-635588"
 TRANSFER_TAG = "требует-менеджера"
 MANAGER_PHONE = "8 903 916 40 40"
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "EXAVITQu4vr4xnSDxMaL")
 
 
 def normalize_phone(phone: str) -> str:
@@ -298,6 +300,50 @@ async def handle_event(request: Request):
     except Exception as e:
         log.error(f"Event handler error: {e}")
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/voice/tts")
+async def handle_tts(request: Request):
+    """
+    TTS proxy for the Asterisk AGI bridge.
+
+    The Selectel VPS can be blocked by ElevenLabs geofencing, while Render can
+    call ElevenLabs from Frankfurt. The AGI downloads the MP3 and converts it to
+    Asterisk WAV locally before playback.
+    """
+    try:
+        if not ELEVENLABS_API_KEY:
+            return JSONResponse({"error": "ELEVENLABS_API_KEY is not configured"}, status_code=503)
+
+        data = await request.json()
+        text = (data.get("text") or "").strip()
+        if not text:
+            return JSONResponse({"error": "text is required"}, status_code=400)
+        if len(text) > 1200:
+            text = text[:1200]
+
+        voice_id = data.get("voice_id") or ELEVENLABS_VOICE_ID
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        headers = {
+            "Content-Type": "application/json",
+            "xi-api-key": ELEVENLABS_API_KEY,
+        }
+        payload = {
+            "text": text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {
+                "stability": 0.55,
+                "similarity_boost": 0.75,
+                "style": 0.10,
+                "use_speaker_boost": True,
+            },
+        }
+        response = requests.post(url, headers=headers, json=payload, timeout=35)
+        response.raise_for_status()
+        return Response(content=response.content, media_type="audio/mpeg")
+    except Exception as e:
+        log.error(f"TTS proxy error: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/health")
