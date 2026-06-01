@@ -48,6 +48,9 @@ TRANSFER_TAG = "требует-менеджера"
 MANAGER_PHONE = "8 903 916 40 40"
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "EXAVITQu4vr4xnSDxMaL")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID") or os.getenv("TELEGRAM_ADMIN_ID", "150420")
+ELEVENLABS_WEBHOOK_SECRET = os.getenv("ELEVENLABS_WEBHOOK_SECRET", "")
 
 
 def normalize_phone(phone: str) -> str:
@@ -147,6 +150,126 @@ def mark_transfer_needed(lead_id: int):
     if AMOCRM_TRANSFER_STATUS_ID:
         payload["status_id"] = int(AMOCRM_TRANSFER_STATUS_ID)
     amo_request("PATCH", f"/api/v4/leads/{lead_id}", json=payload)
+
+
+def send_telegram_message(text: str):
+    if not TELEGRAM_BOT_TOKEN:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
+    max_len = 3900
+    chunks = []
+    rest = text
+    while len(rest) > max_len:
+        cut = rest.rfind("\n", 0, max_len)
+        if cut < 1000:
+            cut = max_len
+        chunks.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip()
+    if rest:
+        chunks.append(rest)
+    for chunk in chunks:
+        response = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            data={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": chunk,
+                "disable_web_page_preview": "true",
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+
+
+def send_telegram_audio(audio: bytes, filename: str, caption: str):
+    if not TELEGRAM_BOT_TOKEN:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
+    response = requests.post(
+        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendAudio",
+        data={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "caption": caption[:1024],
+        },
+        files={"audio": (filename, audio, "audio/mpeg")},
+        timeout=60,
+    )
+    response.raise_for_status()
+
+
+def extract_conversation_id(payload: dict) -> Optional[str]:
+    candidates = [
+        payload.get("conversation_id"),
+        payload.get("conversationId"),
+        payload.get("id"),
+        payload.get("data", {}).get("conversation_id") if isinstance(payload.get("data"), dict) else None,
+        payload.get("event", {}).get("conversation_id") if isinstance(payload.get("event"), dict) else None,
+    ]
+    for value in candidates:
+        if value:
+            return str(value)
+    return None
+
+
+def fetch_elevenlabs_conversation(conversation_id: str) -> dict:
+    if not ELEVENLABS_API_KEY:
+        raise RuntimeError("ELEVENLABS_API_KEY is not configured")
+    response = requests.get(
+        f"https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}",
+        headers={"xi-api-key": ELEVENLABS_API_KEY},
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_elevenlabs_audio(conversation_id: str) -> Optional[bytes]:
+    if not ELEVENLABS_API_KEY:
+        return None
+    response = requests.get(
+        f"https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}/audio",
+        headers={"xi-api-key": ELEVENLABS_API_KEY},
+        timeout=60,
+    )
+    if response.status_code >= 400:
+        log.warning("ElevenLabs audio fetch failed: %s %s", response.status_code, response.text[:200])
+        return None
+    return response.content
+
+
+def format_elevenlabs_transcript(conversation: dict) -> str:
+    metadata = conversation.get("metadata", {})
+    analysis = conversation.get("analysis", {})
+    phone = metadata.get("phone_call") or {}
+    title = analysis.get("call_summary_title") or "Входящий звонок"
+    summary = analysis.get("transcript_summary") or "Итог не сформирован."
+    duration = metadata.get("call_duration_secs") or "?"
+    start_ts = metadata.get("start_time_unix_secs")
+    start = "неизвестно"
+    if start_ts:
+        start = datetime.fromtimestamp(start_ts).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    external = phone.get("external_number") or "неизвестно"
+    agent_number = phone.get("agent_number") or "неизвестно"
+    cid = conversation.get("conversation_id", "")
+
+    lines = []
+    for item in conversation.get("transcript", []):
+        msg = item.get("message") or item.get("text") or ""
+        if not msg:
+            continue
+        role = item.get("role")
+        who = "Мария" if role == "agent" else "Клиент" if role == "user" else str(role)
+        lines.append(f"{who}: {msg}")
+    transcript = "\n".join(lines) if lines else "Расшифровка пустая."
+
+    return (
+        f"📞 Звонок Бетон Экспресс / Мария\n"
+        f"{title}\n\n"
+        f"Время: {start}\n"
+        f"Длительность: {duration} сек.\n"
+        f"Клиент: {external}\n"
+        f"Номер бота: {agent_number}\n"
+        f"Conversation ID: {cid}\n\n"
+        f"Что понял бот:\n{summary}\n\n"
+        f"Расшифровка:\n{transcript}"
+    )
 
 
 def log_to_amocrm(chat_id, caller, client_text, response_text, action, transfer_needed):
@@ -299,6 +422,43 @@ async def handle_event(request: Request):
 
     except Exception as e:
         log.error(f"Event handler error: {e}")
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/voice/elevenlabs/post-call")
+async def handle_elevenlabs_post_call(request: Request):
+    """
+    ElevenLabs post-call webhook.
+
+    Sends the completed call transcript and MP3 recording to Telegram
+    immediately after ElevenLabs notifies us that the conversation is done.
+    """
+    try:
+        if ELEVENLABS_WEBHOOK_SECRET:
+            given = request.headers.get("x-webhook-secret") or request.query_params.get("secret")
+            if given != ELEVENLABS_WEBHOOK_SECRET:
+                return JSONResponse({"ok": False, "error": "bad secret"}, status_code=403)
+
+        payload = await request.json()
+        conversation_id = extract_conversation_id(payload)
+        if not conversation_id:
+            log.warning("ElevenLabs webhook without conversation_id: %s", payload)
+            return JSONResponse({"ok": False, "error": "conversation_id is required"}, status_code=400)
+
+        conversation = fetch_elevenlabs_conversation(conversation_id)
+        message = format_elevenlabs_transcript(conversation)
+        send_telegram_message(message)
+
+        audio = fetch_elevenlabs_audio(conversation_id) if conversation.get("has_audio") else None
+        if audio:
+            title = conversation.get("analysis", {}).get("call_summary_title") or "Запись звонка"
+            send_telegram_audio(audio, f"{conversation_id}.mp3", f"{title}\n{conversation_id}")
+
+        log.info("ElevenLabs transcript sent to Telegram: %s", conversation_id)
+        return JSONResponse({"ok": True, "conversation_id": conversation_id, "audio_sent": bool(audio)})
+
+    except Exception as e:
+        log.error("ElevenLabs post-call webhook error: %s", e, exc_info=True)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
