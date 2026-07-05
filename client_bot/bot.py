@@ -357,32 +357,35 @@ async def enter_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return PHONE
 
 
+def _rub(n) -> str:
+    return f"{int(n):,} ₽".replace(",", " ")
+
+
+def _range(a, b) -> str:
+    return _rub(a) if a == b else f"{_rub(a)}–{_rub(b)}"
+
+
 def format_quote(ud: dict) -> str:
     q = ud.get("quote") or {}
-    calc = q.get("calculation", {})
     grade = ud["grade"]
     volume = ud["volume"]
     lines = ["<b>Расчёт заказа</b>", f"Бетон {grade}, {volume:g} м³"]
+    if q.get("zone"):
+        lines.append(f"Зона доставки: {q['zone']}")
+    if q.get("mixers", 1) > 1:
+        lines.append(f"Подач миксера: {q['mixers']} (по {ud.get('grade')})")
 
-    if q.get("address_found"):
-        km = q.get("distance_km")
-        lines.append(f"Адрес: {q.get('matched_address', ud['address'])}")
-        if km is not None:
-            lines.append(f"Плечо доставки: ~{km:g} км")
-        if not q.get("deliverable"):
-            lines.append("⚠️ Адрес далеко — доставку подтвердит менеджер.")
-    else:
-        lines.append("Адрес не распознали автоматически — уточнит менеджер.")
-
-    beton = calc.get("beton_cost")
-    delivery = calc.get("delivery_cost")
-    total = calc.get("total")
+    beton = q.get("beton_cost")
     if beton is not None:
-        lines.append(f"\nБетон: {int(beton):,} ₽".replace(",", " "))
-    if delivery is not None:
-        lines.append(f"Доставка: {int(delivery):,} ₽".replace(",", " "))
-    if total is not None:
-        lines.append(f"<b>Итого: {int(total):,} ₽</b>".replace(",", " "))
+        lines.append(f"\nБетон: {_rub(beton)}")
+
+    if q.get("needs_manager"):
+        lines.append("Доставка: <b>уточнит менеджер</b> (ваш адрес — по договорённости)")
+    elif q.get("delivery_min") is not None:
+        lines.append(f"Доставка: {_range(q['delivery_min'], q['delivery_max'])}")
+        if q.get("total_min") is not None:
+            lines.append(f"<b>Итого: {_range(q['total_min'], q['total_max'])}</b>")
+
     lines.append("\n<i>Цена ориентировочная, финальную подтвердит менеджер.</i>")
     return "\n".join(lines)
 
@@ -400,7 +403,7 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     ud = context.user_data
     quote = ud.get("quote") or {}
-    calc = quote.get("calculation", {})
+    amount = quote.get("total_max") or quote.get("total_min") or quote.get("beton_cost")
     payload = {
         "lead_data": {
             "name": name,
@@ -412,7 +415,7 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             "urgency": ud.get("urgency", "normal"),
             "payment_method": ud.get("payment_method"),
             "distance": quote.get("distance_km"),
-            "calculated_amount": calc.get("total"),
+            "calculated_amount": amount,
             "comment": f"Заявка из клиентского Telegram-бота (tg_user={update.effective_user.id})",
         }
     }
@@ -443,9 +446,14 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             f"Адрес: {ud.get('address') or '—'}",
             f"Когда: {ud.get('delivery_date') or '—'}",
             f"Оплата: {ud.get('payment_method') or '—'}",
+            f"Зона: {quote.get('zone') or '—'}",
         ]
-        if calc.get("total"):
-            rows.append(f"Сумма (ориент.): {int(calc['total']):,} ₽".replace(",", " "))
+        if quote.get("needs_manager"):
+            rows.append("Доставка: ⚠️ уточнить у клиента (вне тарифных зон)")
+        elif quote.get("delivery_min") is not None:
+            rows.append(f"Доставка: {_range(quote['delivery_min'], quote['delivery_max'])}")
+        if amount:
+            rows.append(f"Сумма (ориент.): {_rub(amount)}")
         try:
             await context.bot.send_message(SALES_CHAT_ID, "\n".join(rows), parse_mode="HTML")
         except Exception as exc:

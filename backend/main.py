@@ -7,6 +7,7 @@ import asyncio
 from datetime import datetime
 import json
 import logging
+import math
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -638,9 +639,9 @@ async def calculate(calc_data: CalculateRequest):
 @app.post("/api/quote")
 async def quote(req: QuoteRequest):
     """
-    Котировка для клиентского бота: адрес → расстояние (бесплатный геокодинг)
-    → стоимость бетона + доставки. Если адрес не распознан — считаем без
-    доставки (distance=0) и просим уточнить адрес.
+    Котировка для клиентского бота: адрес → зона доставки → фикс-цена (× число
+    подач). Зона без цены / непонятный дальний адрес → доставку уточняет менеджер.
+    Стоимость бетона — по марке и объёму.
     """
     if req.concrete_grade not in settings.BETON_PRICES:
         raise HTTPException(
@@ -648,20 +649,43 @@ async def quote(req: QuoteRequest):
             detail=f"Неизвестная марка. Доступны: {', '.join(settings.BETON_PRICES)}",
         )
     try:
-        geo_info = await geo.estimate_distance(req.address)
-        distance = geo_info["distance_km"] or 0
-        calc = calculator.calculate(req.concrete_grade, req.volume, distance)
+        price_per_m3 = settings.BETON_PRICES[req.concrete_grade]
+        beton_cost = round(price_per_m3 * req.volume, 2)
+        mixers = max(1, math.ceil(req.volume / settings.MIXER_VOLUME))
+
+        zone = geo.match_zone(req.address)
+        if zone and zone.get("price_min") is not None:
+            dmin = zone["price_min"] * mixers
+            dmax = zone["price_max"] * mixers
+            return {
+                "status": "success",
+                "zone": zone["name"],
+                "distance_km": zone.get("km"),
+                "deliverable": True,
+                "needs_manager": False,
+                "mixers": mixers,
+                "beton_cost": beton_cost,
+                "delivery_min": dmin,
+                "delivery_max": dmax,
+                "total_min": round(beton_cost + dmin, 2),
+                "total_max": round(beton_cost + dmax, 2),
+                "price_per_m3": price_per_m3,
+            }
+        # зона без цены или неизвестный дальний адрес → на менеджера
         return {
             "status": "success",
-            "address_found": geo_info["found"],
-            "distance_km": geo_info["distance_km"],
-            "distance_method": geo_info["method"],
-            "deliverable": geo_info["deliverable"],
-            "matched_address": geo_info["matched_address"],
-            "calculation": calc,
+            "zone": zone["name"] if zone else None,
+            "distance_km": zone.get("km") if zone else None,
+            "deliverable": False,
+            "needs_manager": True,
+            "mixers": mixers,
+            "beton_cost": beton_cost,
+            "delivery_min": None,
+            "delivery_max": None,
+            "total_min": None,
+            "total_max": None,
+            "price_per_m3": price_per_m3,
         }
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         logger.error("Ошибка котировки: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))

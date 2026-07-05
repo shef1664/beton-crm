@@ -23,13 +23,68 @@
 Всё это оценка «примерно», а не юридически точный расчёт доставки.
 """
 
+import json
 import logging
 import math
 import os
+from pathlib import Path
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+# --- Справочник зон доставки (районы/нас.пункты → фикс-цена) -----------------
+_ZONES_PATH = Path(__file__).resolve().parent.parent / "data" / "delivery_zones.json"
+MIXER_VOLUME = float(os.getenv("MIXER_VOLUME", "7"))
+# Городская ставка по умолчанию для адресов Кемерово без явной зоны (₽ за подачу).
+CITY_DELIVERY_MIN = float(os.getenv("CITY_DELIVERY_MIN", "6000"))
+CITY_DELIVERY_MAX = float(os.getenv("CITY_DELIVERY_MAX", "7000"))
+
+
+def _load_zones() -> list:
+    """Плоский список зон (районы + нас.пункты) с ценами; отсортирован по длине алиаса."""
+    try:
+        cfg = json.loads(_ZONES_PATH.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.warning("delivery_zones.json недоступен: %s", exc)
+        return []
+    zones = list(cfg.get("districts") or []) + list(cfg.get("settlements") or [])
+    entries = []
+    for z in zones:
+        for alias in z.get("aliases") or []:
+            entries.append((alias.lower(), z))
+    # длинные алиасы раньше — «лесная поляна» до generic, точные нас.пункты приоритетнее
+    entries.sort(key=lambda e: len(e[0]), reverse=True)
+    return entries
+
+
+_ZONE_INDEX = _load_zones()
+
+
+def match_zone(address: str) -> dict | None:
+    """
+    Определяет зону доставки по тексту адреса.
+    Возвращает {"name", "km", "price_min", "price_max"} или синтетическую
+    «Кемерово (город)» с городской ставкой, если адрес в Кемерово без явной зоны.
+    None — если адрес не распознан как зона (дальний/непонятный → на менеджера).
+    """
+    if not address:
+        return None
+    low = address.lower()
+    for alias, z in _ZONE_INDEX:
+        if alias in low:
+            price = z.get("price_delivery") or {}
+            return {
+                "name": z.get("name"),
+                "km": z.get("km"),
+                "price_min": price.get("min"),
+                "price_max": price.get("max"),
+            }
+    # адрес по Кемерово без явной зоны → городская ставка
+    if "кемеров" in low:
+        return {"name": "Кемерово (город)", "km": None,
+                "price_min": CITY_DELIVERY_MIN, "price_max": CITY_DELIVERY_MAX}
+    return None
 
 # --- Точка отгрузки (завод). Переопределяется через env. --------------------
 # По умолчанию — Кемерово. Уточни координаты своего РБУ в env PLANT_LAT/PLANT_LON.
