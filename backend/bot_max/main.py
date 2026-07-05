@@ -170,6 +170,9 @@ async def _consult(client, uid, text):
                   "address": order.get("address"), "delivery_date": order.get("delivery_date"),
                   "urgency": DATE_TO_URGENCY.get(order.get("delivery_date"), "normal"),
                   "payment_method": order.get("payment_method"), "state": PHONE})
+        # расчёт, собранный нейросетью по ходу диалога — чтобы сумма попала в заявку
+        if action.get("quote"):
+            s["quote"] = action["quote"]
         if reply:
             await _max_send(client, uid, reply)
         await _max_send(client, uid, "Оставьте номер — менеджер подтвердит заказ и время доставки 👇", _kb_phone())

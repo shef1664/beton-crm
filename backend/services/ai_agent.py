@@ -204,7 +204,13 @@ TOOLS = [
 
 
 def _run_tool(name: str, args: dict, state: dict) -> str:
-    """Исполняет инструмент, возвращает текстовый результат для модели."""
+    """Исполняет инструмент, возвращает текстовый результат для модели.
+
+    По ходу диалога накапливаем заказ (state["order"]) и расчёт (state["quote"]),
+    чтобы марка/объём/адрес/сумма гарантированно попали в заявку — даже если
+    модель вызовет request_phone без части аргументов.
+    """
+    order = state.setdefault("order", {})
     try:
         if name == "calc_concrete_volume":
             shape = args.get("shape")
@@ -227,6 +233,8 @@ def _run_tool(name: str, args: dict, state: dict) -> str:
             if grade not in settings.BETON_PRICES:
                 return f"Ошибка: неизвестная марка. Доступны: {', '.join(settings.BETON_PRICES)}"
             res = _calc.calculate(grade, volume, 0)
+            order["grade"] = grade
+            order["volume"] = volume
             return json.dumps({"grade": grade, "volume_m3": volume, "beton_cost_rub": res["beton_cost"],
                                "note": "Это цена бетона БЕЗ доставки. Доставку посчитает бот по адресу."}, ensure_ascii=False)
 
@@ -238,20 +246,33 @@ def _run_tool(name: str, args: dict, state: dict) -> str:
             beton = round(settings.BETON_PRICES[grade] * volume, 2)
             mixers = max(1, math.ceil(volume / settings.MIXER_VOLUME))
             zone = geo.match_zone(args["address"])
+            order["grade"] = grade
+            order["volume"] = volume
+            order["address"] = args["address"]
             if zone and zone.get("price_min") is not None:
                 dmin, dmax = zone["price_min"] * mixers, zone["price_max"] * mixers
+                state["quote"] = {"zone": zone["name"], "beton_cost": beton, "mixers": mixers,
+                                  "delivery_min": dmin, "delivery_max": dmax,
+                                  "total_min": beton + dmin, "total_max": beton + dmax,
+                                  "distance_km": zone.get("km"), "needs_manager": False}
                 return json.dumps({"zone": zone["name"], "beton_cost_rub": beton, "mixers": mixers,
                                    "delivery_rub": [dmin, dmax], "total_rub": [beton + dmin, beton + dmax],
                                    "note": "Итог ориентировочный, финал подтвердит менеджер."}, ensure_ascii=False)
+            state["quote"] = {"zone": (zone or {}).get("name"), "beton_cost": beton, "mixers": mixers,
+                              "delivery_min": None, "delivery_max": None,
+                              "total_min": None, "total_max": None,
+                              "distance_km": (zone or {}).get("km"), "needs_manager": True}
             return json.dumps({"zone": (zone or {}).get("name"), "beton_cost_rub": beton, "mixers": mixers,
                                "delivery_rub": None,
                                "note": "Адрес вне тарифных зон — стоимость доставки уточнит менеджер."}, ensure_ascii=False)
 
         if name == "request_phone":
-            state["action"] = {"type": "request_phone", "order": {
-                "grade": args.get("grade"), "volume": args.get("volume"), "address": args.get("address"),
-                "delivery_date": args.get("delivery_date"), "payment_method": args.get("payment_method"),
-            }}
+            # Явные аргументы имеют приоритет, недостающие берём из накопленного заказа
+            for key in ("grade", "volume", "address", "delivery_date", "payment_method"):
+                val = args.get(key)
+                if val is not None:
+                    order[key] = val
+            state["action"] = {"type": "request_phone", "order": dict(order), "quote": state.get("quote")}
             return json.dumps({"ok": True, "note": "Показываю клиенту кнопку отправки телефона."}, ensure_ascii=False)
 
         if name == "call_human":

@@ -155,6 +155,7 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if action.get("type") == "request_phone":
         context.user_data["ai_order"] = action.get("order") or {}
+        context.user_data["ai_quote"] = action.get("quote")
         if reply:
             await update.message.reply_text(reply)
         await update.message.reply_text(
@@ -503,16 +504,18 @@ async def ai_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def create_ai_lead(update: Update, context: ContextTypes.DEFAULT_TYPE, phone: str, name: str) -> None:
     order = context.user_data.get("ai_order") or {}
     quote = None
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.post(f"{BACKEND_URL}/api/quote", json={
-                "concrete_grade": order.get("grade"), "volume": order.get("volume"),
-                "address": order.get("address")})
-            if r.status_code == 200:
-                quote = r.json()
-    except Exception as exc:
-        logger.error("ai lead quote failed: %s", exc)
-    q = quote or {}
+    if order.get("grade") and order.get("volume") and order.get("address"):
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                r = await client.post(f"{BACKEND_URL}/api/quote", json={
+                    "concrete_grade": order.get("grade"), "volume": order.get("volume"),
+                    "address": order.get("address")})
+                if r.status_code == 200:
+                    quote = r.json()
+        except Exception as exc:
+            logger.error("ai lead quote failed: %s", exc)
+    # запасной вариант — расчёт, собранный нейросетью по ходу диалога
+    q = quote or context.user_data.get("ai_quote") or {}
     amount = q.get("total_max") or q.get("total_min") or q.get("beton_cost")
     payload = {"lead_data": {
         "name": name or "Клиент", "phone": phone,
@@ -552,6 +555,7 @@ async def create_ai_lead(update: Update, context: ContextTypes.DEFAULT_TYPE, pho
             logger.error("sales card (ai) failed: %s", exc)
 
     context.user_data.pop("ai_order", None)
+    context.user_data.pop("ai_quote", None)
     context.user_data["ai_history"] = []
     await update.message.reply_text(txt, reply_markup=ReplyKeyboardRemove())
 
