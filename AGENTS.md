@@ -133,6 +133,27 @@ Parent: «🤖 Автоматизированный отдел продаж — 
 10. **Notion-плагин** активация через `/plugin install notion-workspace-plugin@notion-plugin-marketplace` — даст 10 slash commands.
 11. **Bitrix24 / AmoCRM миграция** если 402 надолго.
 
+## Счета (генератор PDF) — встроен в @otdprod_bot
+
+- Пакет `backend/invoice_generator/` (reportlab+qrcode). Команда **/schet** в боте:
+  клиент шлёт ИНН + позиции текстом → PDF-счёт с логотипом Бетон Экспресс и платёжным
+  QR по ГОСТ (ST00012), копия в отдел продаж. Покупатель по ИНН через DaData.
+- **Мультиорганизация:** продавец по умолчанию `sequoia` (ООО «Секвойя», ИНН 4205355160),
+  есть `pulsar` (ООО «Пульсар»). Выбор строкой «Организация: Пульсар» или полем `seller`.
+- **Секреты вне git** (репо публичный!): реквизиты `seller.<key>.json` и печати
+  `<key>-stamp-signature-pdf.png` — в `INVOICE_SECRETS_DIR` (Render Secret Files, `/etc/secrets`).
+  Печать привязана к организации по ИНН. Печати Секвойи пока нет → подпись без печати.
+- Деплой/секреты: `docs/CODEX_TASK_invoice_render.md`. TODO: распознавание реквизитов
+  из PDF/фото (Claude vision) и версия счетов для МАКС.
+
+## Роутинг моделей AI-консультанта (по сложности запроса)
+
+- `AI_MODEL_COMPLEX=claude-fable-5` (подбор марки/расчёты/нюансы), `AI_MODEL_MEDIUM=claude-opus-4-8`
+  (обычный диалог), `AI_MODEL_LIGHT=claude-haiku-4-5-20251001` (короткие реплики).
+  Модель выбирается по последней реплике клиента в `backend/services/ai_agent.py::_pick_model`.
+- `AI_MODEL` (если задан непустым) форсит одну модель и ОТКЛЮЧАЕТ роутинг.
+  Fable 5 медленнее — на потоке заказа можно вернуть Opus через `AI_MODEL_COMPLEX`.
+
 ## Дисциплина / правила
 
 Из CLAUDE_RULES.md проекта SMART_MARKETING_AI:
