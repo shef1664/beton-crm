@@ -5,26 +5,32 @@ AI-консультант-продавец «Бетон Экспресс».
 фундамент какой бетон, считает объём по размерам, консультирует по цене/доставке и
 доводит клиента до заявки. Провайдер переключаемый через env AI_PROVIDER.
 
-ВАЖНО (152-ФЗ): персональные данные (телефон, адрес) СЮДА НЕ ПОПАДАЮТ. Их собирает
-структурированный поток бота и backend. Агент оперирует только консультацией,
-размерами и маркой.
+Нейросеть ведёт ВЕСЬ клиентский диалог: подбор марки, объём, адрес, полная цена с
+доставкой, дата/оплата, и оформление заказа. ТЕЛЕФОН через нейросеть не идёт — его
+собирает бот кнопкой «отправить контакт» (по действию request_phone). Адрес нужен
+для расчёта доставки и передаётся агенту.
 
-Инструменты (исполняются на backend, без PII):
-  1. calc_concrete_volume(shape, ...)  → объём м³   (calculator.calculate_volume)
-  2. estimate_price(grade, volume)     → ориентир. цена бетона без доставки
-  3. ready_to_order(grade?, volume?)   → сигнал «клиент готов заказать»
+Инструменты (исполняются на backend):
+  1. calc_concrete_volume(shape, ...)          → объём м³
+  2. estimate_price(grade, volume)             → цена бетона без доставки
+  3. get_delivery_quote(grade, volume, address)→ полная цена (бетон + доставка по зоне)
+  4. request_phone(grade, volume, address, ...) → показать кнопку телефона и оформить
+  5. call_human(reason)                        → живой менеджер
 
 chat(history) -> {"reply": str|None, "action": dict|None}
-  action может быть {"type": "start_order", "grade": ..., "volume": ...}
-  или {"type": "fallback"} если AI недоступен (бот переходит на кнопки).
+  action: {"type": "request_phone", "order": {...}} — бот показывает кнопку телефона;
+          {"type": "call_human", ...} — передача менеджеру;
+          {"type": "fallback"} — AI недоступен (бот на кнопки).
 """
 
 import json
 import logging
+import math
 import os
 from pathlib import Path
 
 from config import settings
+from services import geo
 from services.calculator import BetonCalculator
 
 logger = logging.getLogger(__name__)
@@ -95,19 +101,24 @@ SYSTEM_PROMPT = f"""Ты — Максим, менеджер по продажа�
 {_GRADE_GUIDE}
 
 Правила:
-- Объясняй простым языком, задавай по одному уточняющему вопросу (тип конструкции,
-  размеры, сроки), чтобы клиент отвечал легко.
-- Чтобы посчитать объём — используй инструмент calc_concrete_volume (плита/лента/цилиндр).
-- Чтобы назвать ориентировочную цену бетона — используй estimate_price. Всегда говори,
-  что это цена бетона без доставки, а доставку посчитает бот по адресу.
-- НИКОГДА не спрашивай телефон и точный адрес — это сделает бот кнопками. Если клиент
-  готов оформить заказ (или просит рассчитать доставку/цену итог) — вызови ready_to_order
-  с известными маркой и объёмом.
-- Если клиент просит живого менеджера, недоволен, торгуется, спрашивает про спецусловия/
-  юрлицо/рекламацию или что-то вне твоей компетенции — вызови call_human.
-- Не выдумывай характеристики и цены — бери из данных выше. Если не знаешь — честно скажи,
-  что уточнит менеджер.
-- Отвечай на русском. Держи сообщения краткими (2–5 предложений)."""
+Ты ведёшь весь диалог сам, по шагам, задавая по одному простому вопросу:
+1. Что заливаем и размеры → при необходимости посчитай объём инструментом
+   calc_concrete_volume (плита/лента/цилиндр). Подскажи марку под задачу.
+2. Спроси адрес доставки (город, район/населённый пункт, улица) — он нужен для расчёта.
+3. Назови полную стоимость инструментом get_delivery_quote (бетон + доставка по зоне).
+   Если зона вне тарифов — честно скажи, что доставку уточнит менеджер.
+4. Уточни дату доставки и способ оплаты.
+5. Когда собрал марку, объём и адрес (и по возможности дату/оплату) и клиент согласен —
+   вызови request_phone со всеми собранными данными. Бот покажет кнопку «отправить номер»,
+   клиент нажмёт — заявка оформится. САМ телефон в чате не проси и не жди — только кнопкой.
+
+Правила:
+- Спрашивай адрес — можно. Телефон НЕ спрашивай текстом, только через request_phone (кнопка).
+- Не выдумывай цены/характеристики — бери из данных выше и из инструментов. Не знаешь —
+  скажи, что уточнит менеджер.
+- Живого менеджера (недоволен, торг, юрлицо, спецусловия, рекламация, вопрос вне темы) —
+  вызови call_human.
+- Отвечай на русском, кратко (2–4 предложения), дружелюбно, веди к заказу без навязчивости."""
 
 
 # ── Инструменты (без PII) ───────────────────────────────────────────────────
@@ -148,15 +159,32 @@ TOOLS = [
         },
     },
     {
-        "name": "ready_to_order",
-        "description": "Вызови, когда клиент готов оформить заказ или просит итоговый расчёт с доставкой. Бот переключится на оформление (адрес, дата, оплата, телефон кнопками).",
+        "name": "get_delivery_quote",
+        "description": "Полная стоимость: бетон + доставка по адресу (зона). Вызови после того, как узнал марку, объём и адрес. Вернёт цену бетона, доставку (или «уточнит менеджер»), итог.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "grade": {"type": "string", "description": "Марка, если известна"},
-                "volume": {"type": "number", "description": "Объём м³, если известен"},
+                "grade": {"type": "string", "description": "Марка, напр. М300"},
+                "volume": {"type": "number", "description": "Объём, м³"},
+                "address": {"type": "string", "description": "Адрес доставки (город/район/улица)"},
             },
-            "required": [],
+            "required": ["grade", "volume", "address"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "request_phone",
+        "description": "Оформить заказ: показать клиенту кнопку отправки телефона. Вызывай, когда собрал марку, объём и адрес (и по возможности дату/оплату) и клиент согласен заказать. Телефон соберёт бот кнопкой.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "grade": {"type": "string", "description": "Марка"},
+                "volume": {"type": "number", "description": "Объём, м³"},
+                "address": {"type": "string", "description": "Адрес доставки"},
+                "delivery_date": {"type": "string", "description": "Когда нужна доставка (если уточнили)"},
+                "payment_method": {"type": "string", "description": "Способ оплаты (если уточнили)"},
+            },
+            "required": ["grade", "volume", "address"],
             "additionalProperties": False,
         },
     },
@@ -202,9 +230,29 @@ def _run_tool(name: str, args: dict, state: dict) -> str:
             return json.dumps({"grade": grade, "volume_m3": volume, "beton_cost_rub": res["beton_cost"],
                                "note": "Это цена бетона БЕЗ доставки. Доставку посчитает бот по адресу."}, ensure_ascii=False)
 
-        if name == "ready_to_order":
-            state["action"] = {"type": "start_order", "grade": args.get("grade"), "volume": args.get("volume")}
-            return json.dumps({"ok": True, "note": "Переключаю на оформление заказа кнопками."}, ensure_ascii=False)
+        if name == "get_delivery_quote":
+            grade = args["grade"]
+            volume = float(args["volume"])
+            if grade not in settings.BETON_PRICES:
+                return f"Ошибка: неизвестная марка. Доступны: {', '.join(settings.BETON_PRICES)}"
+            beton = round(settings.BETON_PRICES[grade] * volume, 2)
+            mixers = max(1, math.ceil(volume / settings.MIXER_VOLUME))
+            zone = geo.match_zone(args["address"])
+            if zone and zone.get("price_min") is not None:
+                dmin, dmax = zone["price_min"] * mixers, zone["price_max"] * mixers
+                return json.dumps({"zone": zone["name"], "beton_cost_rub": beton, "mixers": mixers,
+                                   "delivery_rub": [dmin, dmax], "total_rub": [beton + dmin, beton + dmax],
+                                   "note": "Итог ориентировочный, финал подтвердит менеджер."}, ensure_ascii=False)
+            return json.dumps({"zone": (zone or {}).get("name"), "beton_cost_rub": beton, "mixers": mixers,
+                               "delivery_rub": None,
+                               "note": "Адрес вне тарифных зон — стоимость доставки уточнит менеджер."}, ensure_ascii=False)
+
+        if name == "request_phone":
+            state["action"] = {"type": "request_phone", "order": {
+                "grade": args.get("grade"), "volume": args.get("volume"), "address": args.get("address"),
+                "delivery_date": args.get("delivery_date"), "payment_method": args.get("payment_method"),
+            }}
+            return json.dumps({"ok": True, "note": "Показываю клиенту кнопку отправки телефона."}, ensure_ascii=False)
 
         if name == "call_human":
             state["action"] = {"type": "call_human", "reason": args.get("reason", "")}

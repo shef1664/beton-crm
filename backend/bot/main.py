@@ -121,6 +121,11 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     text = update.message.text.strip()
+    # Клиент печатает телефон текстом, когда бот его ждёт (AI-заказ)
+    if context.user_data.get("ai_order") and sum(c.isdigit() for c in text) >= 6:
+        await create_ai_lead(update, context, text, update.effective_user.first_name or "Клиент")
+        return
+
     history = context.user_data.setdefault("ai_history", [])
     history.append({"role": "user", "content": text})
 
@@ -146,6 +151,15 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if reply:
             await update.message.reply_text(reply)
         await update.message.reply_text("Готов оформить — нажмите кнопку 👇", reply_markup=client_keyboard())
+        return
+
+    if action.get("type") == "request_phone":
+        context.user_data["ai_order"] = action.get("order") or {}
+        if reply:
+            await update.message.reply_text(reply)
+        await update.message.reply_text(
+            "Оставьте номер телефона — менеджер подтвердит заказ и время доставки 👇",
+            reply_markup=phone_keyboard())
         return
 
     if action.get("type") == "call_human":
@@ -476,6 +490,72 @@ async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
+# ── AI-заказ: телефон кнопкой → лид (без ConversationHandler) ────────────────
+
+async def ai_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Клиент поделился контактом в AI-режиме (после request_phone)."""
+    if not context.user_data.get("ai_order"):
+        return
+    c = update.message.contact
+    await create_ai_lead(update, context, c.phone_number, c.first_name or update.effective_user.first_name)
+
+
+async def create_ai_lead(update: Update, context: ContextTypes.DEFAULT_TYPE, phone: str, name: str) -> None:
+    order = context.user_data.get("ai_order") or {}
+    quote = None
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(f"{BACKEND_URL}/api/quote", json={
+                "concrete_grade": order.get("grade"), "volume": order.get("volume"),
+                "address": order.get("address")})
+            if r.status_code == 200:
+                quote = r.json()
+    except Exception as exc:
+        logger.error("ai lead quote failed: %s", exc)
+    q = quote or {}
+    amount = q.get("total_max") or q.get("total_min") or q.get("beton_cost")
+    payload = {"lead_data": {
+        "name": name or "Клиент", "phone": phone,
+        "concrete_grade": order.get("grade"), "volume": order.get("volume"),
+        "address": order.get("address"), "delivery_date": order.get("delivery_date"),
+        "urgency": DATE_TO_URGENCY.get(order.get("delivery_date"), "normal"),
+        "payment_method": order.get("payment_method"), "distance": q.get("distance_km"),
+        "calculated_amount": amount,
+        "comment": f"AI-заказ из Telegram (tg_user={update.effective_user.id})",
+    }}
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(f"{BACKEND_URL}/webhooks/telegram", json=payload)
+            r.raise_for_status()
+            res = r.json()
+        txt = ("Вы уже оставляли заявку — менеджер уже с ней работает."
+               if res.get("status") == "duplicate"
+               else "✅ Заявка принята! Менеджер перезвонит и подтвердит стоимость и время доставки. Спасибо! 🚛")
+    except Exception as exc:
+        logger.error("ai lead create failed: %s", exc)
+        txt = "✅ Данные приняты. Менеджер свяжется с вами вручную."
+
+    if SALES_CHAT_ID:
+        rows = ["🧱 <b>Новая заявка из бота (AI)</b>", f"Имя: {name}", f"Телефон: {phone}",
+                f"Марка: {order.get('grade') or '—'}", f"Объём: {order.get('volume') or '—'} м³",
+                f"Адрес: {order.get('address') or '—'}", f"Когда: {order.get('delivery_date') or '—'}",
+                f"Оплата: {order.get('payment_method') or '—'}", f"Зона: {q.get('zone') or '—'}"]
+        if q.get("needs_manager"):
+            rows.append("Доставка: ⚠️ уточнить у клиента (вне тарифных зон)")
+        elif q.get("delivery_min") is not None:
+            rows.append(f"Доставка: {_range(q['delivery_min'], q['delivery_max'])}")
+        if amount:
+            rows.append(f"Сумма (ориент.): {_rub(amount)}")
+        try:
+            await context.bot.send_message(SALES_CHAT_ID, "\n".join(rows), parse_mode="HTML")
+        except Exception as exc:
+            logger.error("sales card (ai) failed: %s", exc)
+
+    context.user_data.pop("ai_order", None)
+    context.user_data["ai_history"] = []
+    await update.message.reply_text(txt, reply_markup=ReplyKeyboardRemove())
+
+
 # ── Сборка и запуск (в backend-процессе) ─────────────────────────────────────
 
 def create_bot() -> Optional[Application]:
@@ -511,6 +591,8 @@ def create_bot() -> Optional[Application]:
     # от точного SALES_CHAT_ID — устойчиво к смене id при апгрейде в супергруппу).
     app.add_handler(MessageHandler(
         (~filters.ChatType.PRIVATE) & filters.REPLY & filters.TEXT, sales_reply))
+    # AI-заказ: контакт (телефон) в личке вне оформления → создать лид
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.CONTACT, ai_contact))
     app.add_handler(MessageHandler(
         filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, consult))
 
