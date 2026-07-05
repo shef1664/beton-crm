@@ -27,6 +27,13 @@ services:
       # Группа отдела продаж: добавьте @otdprod_bot в группу и укажите её chat_id.
       - key: SALES_CHAT_ID
         sync: false
+      # МАКС-бот (мессенджер max.ru). Включить: RUN_MAX_BOT=true + MAX_BOT_TOKEN.
+      - key: RUN_MAX_BOT
+        value: "false"
+      - key: MAX_BOT_TOKEN
+        sync: false
+      - key: MAX_API_BASE
+        value: "https://botapi.max.ru"
       # Точный геокодинг района по улице (опционально). Есть в ~/.secrets/dadata.json.
       - key: DADATA_TOKEN
         sync: false

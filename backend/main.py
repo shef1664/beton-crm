@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 from bot.main import start_bot as start_telegram_bot, stop_bot as stop_telegram_bot
+from bot_max.main import start_max_bot, stop_max_bot
 from config import settings
 from services.amocrm import AmoCRMService
 from services.baserow import BaserowService
@@ -904,12 +905,17 @@ async def startup_event():
         logger.info("   Telegram bot: %s", "started" if bot_started else "disabled or unavailable")
     else:
         logger.info("   Telegram bot: disabled (RUN_BOT=false)")
+    # МАКС-бот (мессенджер max.ru). Включается флагом RUN_MAX_BOT=true + MAX_BOT_TOKEN.
+    if os.getenv("RUN_MAX_BOT", "false").strip().lower() in ("1", "true", "yes", "on"):
+        max_started = await start_max_bot()
+        logger.info("   MAX bot: %s", "started" if max_started else "disabled or unavailable")
     logger.info("Backend API ready")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     await stop_telegram_bot()
+    await stop_max_bot()
 
 
 if __name__ == "__main__":
