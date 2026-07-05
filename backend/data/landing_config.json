@@ -12,14 +12,14 @@
     "currency": "₽/м³",
     "delivery_note": "Доставка рассчитывается отдельно",
     "items": [
-      {"grade": "М100", "price": 5800, "description": "Для подготовок и подушек"},
-      {"grade": "М150", "price": 6100, "description": "Для стяжек и полов"},
-      {"grade": "М200", "price": 6400, "description": "Для фундаментов и отмосток"},
-      {"grade": "М250", "price": 6800, "description": "Для монолитных конструкций"},
-      {"grade": "М300", "price": 7200, "description": "Самая популярная марка"},
-      {"grade": "М350", "price": 7600, "description": "Для колонн и несущих стен"},
-      {"grade": "М400", "price": 8000, "description": "Для мостов и бассейнов"},
-      {"grade": "М450", "price": 8400, "description": "Для особо ответственных конструкций"}
+      {"grade": "М100", "price": 5600, "description": "Для подготовок и подушек"},
+      {"grade": "М150", "price": 5900, "description": "Для стяжек и полов"},
+      {"grade": "М200", "price": 6200, "description": "Для фундаментов и отмосток"},
+      {"grade": "М250", "price": 6600, "description": "Для монолитных конструкций"},
+      {"grade": "М300", "price": 7000, "description": "Самая популярная марка"},
+      {"grade": "М350", "price": 7400, "description": "Для колонн и несущих стен"},
+      {"grade": "М400", "price": 7800, "description": "Для мостов и бассейнов"},
+      {"grade": "М450", "price": 8200, "description": "Для особо ответственных конструкций"}
     ]
   },
   "delivery": {
