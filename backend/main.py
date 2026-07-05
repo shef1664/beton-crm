@@ -896,14 +896,14 @@ async def startup_event():
     if os.getenv("AVITO_CLIENT_ID"):
         asyncio.create_task(avito_poll_loop(amocrm))
         logger.info("   Avito poller: enabled")
-    # Встроенный админ-бот (@otdprod_bot). Отключите (RUN_ADMIN_BOT=false), если тот
-    # же токен теперь опрашивает клиентский client_bot — иначе конфликт getUpdates (409).
-    # Уведомления менеджеру идут по HTTP и работают независимо от этого опроса.
-    if os.getenv("RUN_ADMIN_BOT", "true").strip().lower() in ("1", "true", "yes", "on"):
+    # Клиентский AI-бот встроен в backend (@otdprod_bot). Флаг RUN_BOT=false отключает
+    # опрос (например, если тот же токен вы отдали отдельному процессу) — уведомления
+    # менеджеру идут по HTTP и от этого опроса не зависят.
+    if os.getenv("RUN_BOT", "true").strip().lower() in ("1", "true", "yes", "on"):
         bot_started = await start_telegram_bot()
-        logger.info("   Telegram admin bot: %s", "started" if bot_started else "disabled or unavailable")
+        logger.info("   Telegram bot: %s", "started" if bot_started else "disabled or unavailable")
     else:
-        logger.info("   Telegram admin bot: disabled (RUN_ADMIN_BOT=false) — токен отдан клиентскому боту")
+        logger.info("   Telegram bot: disabled (RUN_BOT=false)")
     logger.info("Backend API ready")
 
 
