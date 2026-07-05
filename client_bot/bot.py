@@ -1,17 +1,21 @@
 """
-Клиентский бот заказа бетона «Бетон Экспресс».
+Единый клиентский бот заказа бетона «Бетон Экспресс».
 
-Сценарий (для QR-кода / ссылки в рекламе):
-  1. Клиент открывает бота по ссылке/QR → /start
-  2. Выбирает марку бетона (кнопки М100…М450)
-  3. Вводит объём в м³
-  4. Пишет адрес доставки
-  5. Бот считает стоимость + доставку (бесплатный геокодинг на backend)
-     и говорит, возможна ли доставка
-  6. Клиент оставляет телефон → создаётся лид в CRM (менеджеру летит уведомление)
+Вешается на QR-код / ссылку в рекламе. Это ЕДИНСТВЕННЫЙ клиентский бот
+(внутренний @otdprod_bot остаётся только для админа и уведомлений).
 
-Бот — тонкий: вся логика цены и геокодинга живёт в backend (/api/quote,
-/api/leads/create). Здесь только диалог.
+Сценарий:
+  1. /start → выбор марки (кнопки М100…М450)
+  2. объём в м³
+  3. адрес доставки  → backend POST /api/quote (цена + доставка по адресу,
+     бесплатный геокодинг Nominatim/DaData + OSRM) → показ стоимости
+  4. когда нужна доставка (Сегодня / Завтра / На неделе / Не срочно)
+  5. способ оплаты (Наличные / Безнал / Перевод на карту)
+  6. телефон (кнопка «отправить контакт»)
+        → backend POST /webhooks/telegram → полный пайплайн:
+          антидубль → автоматизация продаж → AmoCRM + SQLite + Telegram + Notion
+
+Бот тонкий: логика цены и геокодинга — на backend. Здесь только диалог.
 
 Запуск:  python bot.py
 Нужны env: CLIENT_BOT_TOKEN, BACKEND_URL (см. .env.example)
@@ -50,8 +54,19 @@ BACKEND_URL = os.getenv("BACKEND_URL", "https://beton-backend-wr3w.onrender.com"
 
 GRADES = ["М100", "М150", "М200", "М250", "М300", "М350", "М400", "М450"]
 
+# Варианты даты доставки → значение urgency для автоматики воронки.
+# «Сегодня» = today → sales_automation поднимает приоритет (hot_urgency_values).
+DATE_OPTIONS = ["Сегодня", "Завтра", "На неделе", "Не срочно"]
+DATE_TO_URGENCY = {
+    "Сегодня": "today",
+    "Завтра": "normal",
+    "На неделе": "normal",
+    "Не срочно": "normal",
+}
+PAYMENT_OPTIONS = ["Наличные", "Безналичный расчёт", "Перевод на карту"]
+
 # Состояния диалога
-VOLUME, ADDRESS, PHONE = range(3)
+VOLUME, ADDRESS, DATE, PAYMENT, PHONE = range(5)
 
 
 def grades_keyboard() -> InlineKeyboardMarkup:
@@ -65,6 +80,27 @@ def grades_keyboard() -> InlineKeyboardMarkup:
     if row:
         rows.append(row)
     return InlineKeyboardMarkup(rows)
+
+
+def date_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [["Сегодня", "Завтра"], ["На неделе", "Не срочно"]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+def payment_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [["Наличные", "Безналичный расчёт"], ["Перевод на карту"]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+def phone_keyboard() -> ReplyKeyboardMarkup:
+    btn = KeyboardButton("📱 Отправить мой номер", request_contact=True)
+    return ReplyKeyboardMarkup([[btn]], resize_keyboard=True, one_time_keyboard=True)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -124,36 +160,48 @@ async def enter_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.post(f"{BACKEND_URL}/api/quote", json=payload)
             resp.raise_for_status()
-            data = resp.json()
+            context.user_data["quote"] = resp.json()
     except Exception as exc:
         logger.error("quote failed: %s", exc)
+        context.user_data["quote"] = None
         await update.message.reply_text(
-            "⚠️ Не удалось рассчитать автоматически. Оставьте телефон — менеджер "
-            "посчитает вручную и перезвонит.",
-            reply_markup=phone_keyboard(),
+            "⚠️ Не удалось рассчитать автоматически — менеджер посчитает вручную."
         )
-        return PHONE
 
-    context.user_data["quote"] = data
-    await update.message.reply_text(format_quote(context.user_data), parse_mode="HTML")
+    if context.user_data.get("quote"):
+        await update.message.reply_text(format_quote(context.user_data), parse_mode="HTML")
+
     await update.message.reply_text(
-        "Оставьте номер телефона — менеджер подтвердит заказ и время доставки 👇",
+        "4️⃣ Когда нужна доставка?", reply_markup=date_keyboard()
+    )
+    return DATE
+
+
+async def enter_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    choice = update.message.text.strip()
+    context.user_data["delivery_date"] = choice
+    context.user_data["urgency"] = DATE_TO_URGENCY.get(choice, "normal")
+    await update.message.reply_text(
+        "5️⃣ Способ оплаты?", reply_markup=payment_keyboard()
+    )
+    return PAYMENT
+
+
+async def enter_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data["payment_method"] = update.message.text.strip()
+    await update.message.reply_text(
+        "6️⃣ Оставьте номер телефона — менеджер подтвердит заказ и время доставки 👇",
         reply_markup=phone_keyboard(),
     )
     return PHONE
 
 
-def phone_keyboard() -> ReplyKeyboardMarkup:
-    btn = KeyboardButton("📱 Отправить мой номер", request_contact=True)
-    return ReplyKeyboardMarkup([[btn]], resize_keyboard=True, one_time_keyboard=True)
-
-
 def format_quote(ud: dict) -> str:
-    q = ud["quote"]
+    q = ud.get("quote") or {}
     calc = q.get("calculation", {})
     grade = ud["grade"]
     volume = ud["volume"]
-    lines = [f"<b>Расчёт заказа</b>", f"Бетон {grade}, {volume:g} м³"]
+    lines = ["<b>Расчёт заказа</b>", f"Бетон {grade}, {volume:g} м³"]
 
     if q.get("address_found"):
         km = q.get("distance_km")
@@ -190,33 +238,40 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         return PHONE
 
     ud = context.user_data
-    quote = ud.get("quote", {})
+    quote = ud.get("quote") or {}
     calc = quote.get("calculation", {})
-    lead = {
-        "name": name,
-        "phone": phone,
-        "source": "telegram",
-        "source_platform": "telegram",
-        "source_channel": "chat",
-        "concrete_grade": ud.get("grade"),
-        "volume": ud.get("volume"),
-        "address": ud.get("address"),
-        "distance": quote.get("distance_km"),
-        "calculated_amount": calc.get("total"),
-        "comment": "Заявка из клиентского Telegram-бота",
+    payload = {
+        "lead_data": {
+            "name": name,
+            "phone": phone,
+            "concrete_grade": ud.get("grade"),
+            "volume": ud.get("volume"),
+            "address": ud.get("address"),
+            "delivery_date": ud.get("delivery_date"),
+            "urgency": ud.get("urgency", "normal"),
+            "payment_method": ud.get("payment_method"),
+            "distance": quote.get("distance_km"),
+            "calculated_amount": calc.get("total"),
+            "comment": f"Заявка из клиентского Telegram-бота (tg_user={update.effective_user.id})",
+        }
     }
     try:
         async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(f"{BACKEND_URL}/api/leads/create", json=lead)
+            resp = await client.post(f"{BACKEND_URL}/webhooks/telegram", json=payload)
             resp.raise_for_status()
+            result = resp.json()
+        if result.get("status") == "duplicate":
+            text = "Вы уже оставляли заявку — менеджер уже с ней работает и свяжется с вами."
+        else:
+            text = (
+                "✅ Заявка принята! Менеджер перезвонит в ближайшее время и подтвердит "
+                "стоимость и время доставки.\n\nСпасибо, что выбрали «Бетон Экспресс»! 🚛"
+            )
     except Exception as exc:
         logger.error("lead create failed: %s", exc)
+        text = "✅ Данные приняты. Менеджер свяжется с вами вручную."
 
-    await update.message.reply_text(
-        "✅ Заявка принята! Менеджер перезвонит в ближайшее время и подтвердит "
-        "стоимость и время доставки.\n\nСпасибо, что выбрали «Бетон Экспресс»! 🚛",
-        reply_markup=ReplyKeyboardRemove(),
-    )
+    await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
@@ -241,12 +296,15 @@ def main() -> None:
                 MessageHandler(filters.TEXT & ~filters.COMMAND, enter_volume),
             ],
             ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_address)],
+            DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_date)],
+            PAYMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_payment)],
             PHONE: [
                 MessageHandler(filters.CONTACT, enter_phone),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, enter_phone),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
+        allow_reentry=True,
     )
     app.add_handler(conv)
     logger.info("🤖 Клиентский бот заказа бетона запущен")
