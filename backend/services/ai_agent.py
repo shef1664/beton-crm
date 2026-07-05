@@ -36,8 +36,59 @@ from services.calculator import BetonCalculator
 logger = logging.getLogger(__name__)
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "claude").lower()
-AI_MODEL = os.getenv("AI_MODEL", "claude-opus-4-8")
 AI_MAX_HISTORY = int(os.getenv("AI_MAX_HISTORY", "20"))  # последних сообщений
+
+# Роутинг моделей по сложности запроса:
+#   • сложное (подбор марки под фундамент, расчёты, нюансы) → Fable 5 (максимум качества);
+#   • среднее (обычный диалог продажи)                      → Opus 4.8;
+#   • лёгкое (приветствие, «да/нет», спасибо, короткое)     → Haiku 4.5 (быстро/дёшево).
+# Если задан AI_MODEL — он форсит одну модель для всех уровней (обратная совместимость).
+AI_MODEL = os.getenv("AI_MODEL", "").strip()
+AI_MODEL_LIGHT = os.getenv("AI_MODEL_LIGHT", "claude-haiku-4-5-20251001")
+AI_MODEL_MEDIUM = os.getenv("AI_MODEL_MEDIUM", "claude-opus-4-8")
+AI_MODEL_COMPLEX = os.getenv("AI_MODEL_COMPLEX", "claude-fable-5")
+
+# Сигналы «сложного» запроса — техническая консультация по бетону/конструкции.
+_COMPLEX_MARKERS = (
+    "фундамент", "марк", "какой бетон", "какую марку", "перекрыт", "нагруз", "толщин",
+    "арматур", "морозостойк", "водонепрониц", "пропорц", "состав", "класс", "b15", "b20",
+    "b22", "b25", "b30", "монолит", "лент", "плит", "сваи", "ростверк", "стяжк", "отмостк",
+    "почему", "чем отлич", "что лучше", "посчита", "рассчита", "объ[её]м", "куб",
+)
+# Сигналы «лёгкого» запроса — короткие реплики без консультации.
+_LIGHT_MARKERS = (
+    "спасибо", "ок", "хорошо", "да", "нет", "привет", "здрав", "добрый", "понял",
+    "давай", "ясно", "угу", "ок.", "спс",
+)
+
+
+def _pick_model(messages: list) -> str:
+    """Выбрать модель по сложности последней реплики клиента."""
+    if AI_MODEL:
+        return AI_MODEL
+    last = ""
+    for m in reversed(messages):
+        if m.get("role") == "user" and isinstance(m.get("content"), str):
+            last = m["content"].strip().lower()
+            break
+    if not last:
+        return AI_MODEL_MEDIUM
+
+    has_digit = any(ch.isdigit() for ch in last)
+    complex_hit = any(mk in last for mk in _COMPLEX_MARKERS)
+    many_questions = last.count("?") >= 2
+    # размеры вида «10х8», «0.4 на 0.6» — почти всегда расчёт объёма
+    dims = ("х" in last and has_digit) or (" на " in last and has_digit)
+
+    if complex_hit or many_questions or dims or len(last) > 200:
+        return AI_MODEL_COMPLEX
+    # короткая реплика без цифр и техсигналов → лёгкая модель
+    words = last.split()
+    if len(last) <= 30 and not has_digit and (
+        len(words) <= 4 or any(last.startswith(mk) for mk in _LIGHT_MARKERS)
+    ):
+        return AI_MODEL_LIGHT
+    return AI_MODEL_MEDIUM
 
 _calc = BetonCalculator()
 _LANDING_CONFIG = Path(__file__).resolve().parent.parent / "data" / "landing_config.json"
@@ -298,10 +349,12 @@ async def _chat_claude(history: list) -> dict:
     client = anthropic.AsyncAnthropic()
     messages = [{"role": m["role"], "content": m["content"]} for m in history[-AI_MAX_HISTORY:]]
     state = {"action": None}
+    model = _pick_model(messages)  # модель по сложности запроса (один раз на ход диалога)
+    logger.info("AI model: %s", model)
 
     for _ in range(6):  # предохранитель от бесконечного цикла инструментов
         resp = await client.messages.create(
-            model=AI_MODEL,
+            model=model,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             tools=TOOLS,
