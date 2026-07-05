@@ -1,0 +1,156 @@
+"""
+Бесплатное определение расстояния «адрес клиента → завод».
+
+Цель — «примерно понимать» километраж и стоимость доставки без платных ключей.
+Стек (всё бесплатно, без API-ключей):
+
+  1. Nominatim (OpenStreetMap)  — адрес → координаты (гео­кодинг)
+  2. OSRM (public demo server)  — координаты → расстояние по дорогам (км)
+  3. Haversine (формула)        — офлайн-фолбэк, если сервисы недоступны
+
+Любой шаг может «отвалиться» — тогда мягко деградируем к следующему,
+в худшем случае считаем расстояние по прямой ×1.35 (поправка на дороги).
+
+Ограничения бесплатных сервисов:
+  - Nominatim: не чаще ~1 запроса/сек, обязателен User-Agent (см. usage policy).
+  - OSRM demo: без гарантий доступности, для production лучше поднять свой.
+Оба сервиса подходят для оценки «примерно», а не для юридически точного расчёта.
+"""
+
+import logging
+import math
+import os
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+# --- Точка отгрузки (завод). Переопределяется через env. --------------------
+# По умолчанию — Кемерово. Уточни координаты своего РБУ в env PLANT_LAT/PLANT_LON.
+PLANT_LAT: float = float(os.getenv("PLANT_LAT", "55.3550"))
+PLANT_LON: float = float(os.getenv("PLANT_LON", "86.0870"))
+PLANT_ADDRESS: str = os.getenv("PLANT_ADDRESS", "Кемерово")
+
+# Максимальное плечо доставки, км. Дальше — «доставка под вопрос, нужен расчёт».
+MAX_DELIVERY_KM: float = float(os.getenv("MAX_DELIVERY_KM", "60"))
+
+# Регион для смещения гео­кодинга (чтобы «Ленина 90» находилось в Кемерово,
+# а не в другом городе). Bounding box Кемеровской области, примерно.
+_VIEWBOX = os.getenv("GEO_VIEWBOX", "84.5,56.5,88.5,53.0")  # left,top,right,bottom
+_USER_AGENT = os.getenv("GEO_USER_AGENT", "beton42-crm/1.0 (shef1664@gmail.com)")
+_NOMINATIM = os.getenv("NOMINATIM_URL", "https://nominatim.openstreetmap.org/search")
+_OSRM = os.getenv("OSRM_URL", "https://router.project-osrm.org/route/v1/driving")
+
+_TIMEOUT = httpx.Timeout(12.0)
+# Поправочный коэффициент «прямая → дорога», когда OSRM недоступен.
+_ROAD_FACTOR = 1.35
+
+
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Расстояние по прямой между двумя точками, км."""
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return r * 2 * math.asin(math.sqrt(a))
+
+
+async def geocode(address: str) -> dict | None:
+    """
+    Адрес → координаты через Nominatim (OSM). Бесплатно, без ключа.
+    Возвращает {"lat", "lon", "display_name"} или None, если не найдено.
+    """
+    query = address.strip()
+    if not query:
+        return None
+    # Если в адресе нет города — добавим Кемерово, чтобы не искать по всей стране.
+    if "кемеров" not in query.lower():
+        query = f"{query}, Кемерово"
+    params = {
+        "q": query,
+        "format": "json",
+        "limit": "1",
+        "countrycodes": "ru",
+        "viewbox": _VIEWBOX,
+        "bounded": "0",
+        "accept-language": "ru",
+    }
+    headers = {"User-Agent": _USER_AGENT}
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(_NOMINATIM, params=params, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as exc:  # сеть/парсинг/лимит — не роняем поток
+        logger.warning("Nominatim geocode failed for %r: %s", address, exc)
+        return None
+    if not data:
+        return None
+    top = data[0]
+    return {
+        "lat": float(top["lat"]),
+        "lon": float(top["lon"]),
+        "display_name": top.get("display_name", query),
+    }
+
+
+async def road_distance_km(lat: float, lon: float) -> tuple[float, str]:
+    """
+    Расстояние по дорогам от завода до точки через OSRM. Бесплатно, без ключа.
+    Возвращает (км, метод). Метод: "osrm" | "haversine" (фолбэк).
+    """
+    straight = haversine_km(PLANT_LAT, PLANT_LON, lat, lon)
+    # OSRM формат координат: lon,lat;lon,lat
+    url = f"{_OSRM}/{PLANT_LON},{PLANT_LAT};{lon},{lat}"
+    params = {"overview": "false"}
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        if data.get("code") == "Ok" and data.get("routes"):
+            meters = data["routes"][0]["distance"]
+            return round(meters / 1000.0, 1), "osrm"
+    except Exception as exc:
+        logger.warning("OSRM route failed (%.4f,%.4f): %s", lat, lon, exc)
+    # Фолбэк — прямая с поправкой на дороги.
+    return round(straight * _ROAD_FACTOR, 1), "haversine"
+
+
+async def estimate_distance(address: str) -> dict:
+    """
+    Главная точка входа: адрес клиента → оценка расстояния и возможности доставки.
+
+    Возвращает:
+      {
+        "found": bool,               # удалось ли распознать адрес
+        "distance_km": float | None, # плечо от завода
+        "method": "osrm"|"haversine"|None,
+        "deliverable": bool,         # в пределах MAX_DELIVERY_KM
+        "coords": {"lat","lon"} | None,
+        "matched_address": str | None,
+        "plant_address": str,
+      }
+    """
+    geo = await geocode(address)
+    if not geo:
+        return {
+            "found": False,
+            "distance_km": None,
+            "method": None,
+            "deliverable": False,
+            "coords": None,
+            "matched_address": None,
+            "plant_address": PLANT_ADDRESS,
+        }
+    km, method = await road_distance_km(geo["lat"], geo["lon"])
+    return {
+        "found": True,
+        "distance_km": km,
+        "method": method,
+        "deliverable": km <= MAX_DELIVERY_KM,
+        "coords": {"lat": geo["lat"], "lon": geo["lon"]},
+        "matched_address": geo["display_name"],
+        "plant_address": PLANT_ADDRESS,
+    }
