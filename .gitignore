@@ -52,3 +52,5 @@ backend/data/*
 !backend/data/robots.txt
 !backend/data/sitemap.xml
 !backend/data/sitemap-segodnya.xml
+!backend/data/landing_config.json
+!backend/data/delivery_zones.json
