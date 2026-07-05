@@ -58,10 +58,10 @@ def _load_knowledge() -> str:
 
     delivery = cfg.get("delivery") or {}
     lines.append(
-        f"\nДоставка: {delivery.get('price_per_km', settings.DELIVERY_PRICE_PER_KM)} ₽/км, "
-        f"миксер до {delivery.get('mixer_volume_m3', settings.MIXER_VOLUME)} м³, "
-        f"{delivery.get('region', 'Кемерово и область')}. "
-        "Точную доставку считает бот по адресу — не называй точную сумму доставки сам."
+        f"\nДоставка платная, зависит от адреса и объёма (миксер до "
+        f"{delivery.get('mixer_volume_m3', settings.MIXER_VOLUME):g} м³, "
+        f"{delivery.get('region', 'Кемерово и область')}). Средний чек по городу ≈ 6–7 тыс ₽. "
+        "Точную сумму доставки считает бот по адресу — сам её не называй, дай только порядок."
     )
     faq = cfg.get("faq") or []
     if faq:
