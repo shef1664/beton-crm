@@ -18,6 +18,7 @@ import asyncio
 import logging
 import os
 import re
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -118,6 +119,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user.id in _operators(context):
         await relay_to_sales(update, context)
+        return
+
+    # Режим счёта: текст уходит в генератор счёта, а не в AI-консультанта
+    if context.user_data.get("invoice_mode"):
+        await handle_invoice_text(update, context)
         return
 
     text = update.message.text.strip()
@@ -560,6 +566,84 @@ async def create_ai_lead(update: Update, context: ContextTypes.DEFAULT_TYPE, pho
     await update.message.reply_text(txt, reply_markup=ReplyKeyboardRemove())
 
 
+# ── Счета (встроенный генератор PDF со счётом и QR) ───────────────────────────
+
+INVOICE_HELP = (
+    "🧾 Режим счёта.\n\n"
+    "Пришлите одним сообщением ИНН покупателя и позиции (по одной в строке):\n\n"
+    "Инн 5405042760\n"
+    "Бетон М300 6м3 7200\n"
+    "Услуги доставки 1 6000\n\n"
+    "Название организации, КПП и адрес подтянутся по ИНН автоматически.\n"
+    "Продавца можно сменить первой строкой, напр.: «Организация: Пульсар».\n"
+    "Выйти из режима счёта — /start."
+)
+
+
+async def invoice_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data["invoice_mode"] = True
+    await update.message.reply_text(INVOICE_HELP)
+
+
+async def handle_invoice_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = update.message.text
+    try:
+        from invoice_generator import company, service
+    except Exception as exc:  # noqa: BLE001 — отсутствие зависимостей не должно ронять бота
+        logger.error("invoice deps missing: %s", exc)
+        await update.message.reply_text("Счета временно недоступны. Сообщите менеджеру.")
+        return
+    if not company.invoices_enabled():
+        await update.message.reply_text("Реквизиты организации ещё не настроены. Сообщите менеджеру.")
+        return
+    try:
+        parsed = service.parse_invoice(text)
+    except ValueError as err:
+        await update.message.reply_text(f"Не смог разобрать счёт: {err}\n\n{INVOICE_HELP}")
+        return
+    # Название/КПП/адрес покупателя по ИНН (DaData), если не заданы текстом
+    if not parsed.buyer.name:
+        try:
+            from invoice_generator.dadata import find_party_by_inn
+            found = await find_party_by_inn(parsed.buyer.inn)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("dadata lookup failed: %s", exc)
+            found = None
+        if found:
+            parsed.buyer = found
+        else:
+            await update.message.reply_text(
+                "Не нашёл организацию по ИНН. Добавьте строки «Покупатель:», «КПП:», «Адрес:».")
+            return
+    await update.message.chat.send_action("upload_document")
+    try:  # reportlab синхронный — уводим в поток, чтобы не блокировать event loop
+        result = await asyncio.to_thread(service.generate_invoice, parsed)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("invoice generate failed: %s", exc)
+        await update.message.reply_text("Ошибка при формировании счёта. Попробуйте ещё раз.")
+        return
+    if result is None:
+        await update.message.reply_text("Реквизиты организации не настроены. Сообщите менеджеру.")
+        return
+    pdf_path = Path(result.pdf_path)
+    caption = f"Счёт №{result.invoice_number} на сумму {result.total_amount} ₽"
+    try:
+        with pdf_path.open("rb") as doc:
+            await update.message.reply_document(document=doc, filename=pdf_path.name, caption=caption)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("invoice send failed: %s", exc)
+        await update.message.reply_text("Счёт создан, но не отправился. Попробуйте ещё раз.")
+        return
+    if SALES_CHAT_ID:  # копия в отдел продаж
+        try:
+            with pdf_path.open("rb") as doc:
+                await context.bot.send_document(
+                    SALES_CHAT_ID, document=doc, filename=pdf_path.name,
+                    caption=f"🧾 {caption}\nПокупатель: {parsed.buyer.name} (ИНН {parsed.buyer.inn})")
+        except Exception as exc:  # noqa: BLE001
+            logger.error("invoice sales copy failed: %s", exc)
+
+
 # ── Сборка и запуск (в backend-процессе) ─────────────────────────────────────
 
 def create_bot() -> Optional[Application]:
@@ -590,6 +674,8 @@ def create_bot() -> Optional[Application]:
 
     app.add_handler(order_conv)
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("schet", invoice_start))
+    app.add_handler(CommandHandler("invoice", invoice_start))
     app.add_handler(CallbackQueryHandler(call_manager, pattern=r"^human$"))
     # Ответ менеджера из группы: любой reply в группе на сообщение бота (не зависит
     # от точного SALES_CHAT_ID — устойчиво к смене id при апгрейде в супергруппу).
