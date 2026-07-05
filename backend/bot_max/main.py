@@ -164,6 +164,16 @@ async def _consult(client, uid, text):
             await _max_send(client, uid, reply)
         await _order_entry(client, uid)
         return
+    if action.get("type") == "request_phone":
+        order = action.get("order") or {}
+        s.update({"grade": order.get("grade"), "volume": order.get("volume"),
+                  "address": order.get("address"), "delivery_date": order.get("delivery_date"),
+                  "urgency": DATE_TO_URGENCY.get(order.get("delivery_date"), "normal"),
+                  "payment_method": order.get("payment_method"), "state": PHONE})
+        if reply:
+            await _max_send(client, uid, reply)
+        await _max_send(client, uid, "Оставьте номер — менеджер подтвердит заказ и время доставки 👇", _kb_phone())
+        return
     if action.get("type") == "call_human":
         if reply:
             await _max_send(client, uid, reply)
@@ -225,6 +235,16 @@ async def _do_quote(client, uid):
 
 async def _create_lead(client, uid, phone, name):
     s = _sess(uid)
+    # если котировки ещё нет (AI-заказ) — посчитать по собранным данным
+    if not s.get("quote") and s.get("grade") and s.get("volume") and s.get("address"):
+        try:
+            async with httpx.AsyncClient(timeout=20) as c:
+                r = await c.post(f"{BACKEND_URL}/api/quote", json={
+                    "concrete_grade": s["grade"], "volume": s["volume"], "address": s["address"]})
+                if r.status_code == 200:
+                    s["quote"] = r.json()
+        except Exception as exc:
+            logger.error("MAX ai quote failed: %s", exc)
     q = s.get("quote") or {}
     amount = q.get("total_max") or q.get("total_min") or q.get("beton_cost")
     comment = "Заявка из МАКС-бота" + (" (просит менеджера)" if s.get("human") else "")
