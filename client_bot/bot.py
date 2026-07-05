@@ -42,7 +42,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = os.getenv("CLIENT_BOT_TOKEN", "")
+# Токен клиентского бота. Можно переиспользовать существующий «бетонный» бот
+# (@otdprod_bot): задайте CLIENT_BOT_TOKEN = его токен, ИЛИ просто дайте боту тот же
+# TELEGRAM_BOT_TOKEN. Тогда на backend выключите RUN_ADMIN_BOT (иначе конфликт опроса).
+BOT_TOKEN = os.getenv("CLIENT_BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN", "")
 BACKEND_URL = os.getenv("BACKEND_URL", "https://beton-backend-wr3w.onrender.com").rstrip("/")
 # Группа отдела продаж (добавьте бота в группу и укажите её chat_id, обычно отрицательный)
 SALES_CHAT_ID = int(os.getenv("SALES_CHAT_ID", "0") or 0)
