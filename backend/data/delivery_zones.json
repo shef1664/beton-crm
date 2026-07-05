@@ -7,14 +7,15 @@
     "lon": null
   },
   "districts": [
-    {"name": "Заводский р-н (завод)", "aliases": ["заводск", "дружбы"], "km": 2, "price_delivery": null},
+    {"name": "Заводский р-н (завод)", "aliases": ["заводск", "дружбы"], "km": 2, "price_delivery": {"min": 6000, "max": 7000}},
     {"name": "Центральный р-н", "aliases": ["центральн"], "km": 4, "price_delivery": null},
     {"name": "Пионер", "aliases": ["пионер"], "km": 5, "price_delivery": null},
     {"name": "Ленинский р-н / ФПК", "aliases": ["ленинск р", "фпк", "шалготарьян"], "km": 6, "price_delivery": null},
     {"name": "Кировский р-н", "aliases": ["кировск"], "km": 9, "price_delivery": null},
     {"name": "Рудничный р-н", "aliases": ["рудничн"], "km": 10, "price_delivery": null},
-    {"name": "Лесная Поляна", "aliases": ["лесная поляна"], "km": 14, "price_delivery": null},
-    {"name": "Кедровка", "aliases": ["кедровк"], "km": 16, "price_delivery": null}
+    {"name": "Лесная Поляна", "aliases": ["лесная поляна"], "km": 14, "price_delivery": {"min": 7000, "max": 8000}},
+    {"name": "Андреевка", "aliases": ["андреевк"], "km": 16, "price_delivery": {"min": 7000, "max": 8000}},
+    {"name": "Кедровка", "aliases": ["кедровк"], "km": 16, "price_delivery": {"min": 8000, "max": 9000}}
   ],
   "settlements": [
     {"name": "Пригородный", "aliases": ["пригородн"], "km": 7, "price_delivery": null},
