@@ -1,21 +1,14 @@
 """
-Единый клиентский бот заказа бетона «Бетон Экспресс».
+Единый клиентский бот заказа бетона «Бетон Экспресс» — ГИБРИД (AI + кнопки).
 
-Вешается на QR-код / ссылку в рекламе. Это ЕДИНСТВЕННЫЙ клиентский бот
-(внутренний @otdprod_bot остаётся только для админа и уведомлений).
+Два режима:
+  • Консультация (свободный чат) — клиент пишет как человеку, AI-продавец (Claude на
+    backend, /api/ai/chat) объясняет марки/фундаменты, считает объём по размерам,
+    ориентирует по цене и доводит до заказа. Персональные данные СЮДА НЕ идут.
+  • Оформление заказа (кнопки) — существующий структурированный поток:
+    марка → объём → адрес → /api/quote → дата → оплата → телефон(кнопка) → CRM.
 
-Сценарий:
-  1. /start → выбор марки (кнопки М100…М450)
-  2. объём в м³
-  3. адрес доставки  → backend POST /api/quote (цена + доставка по адресу,
-     бесплатный геокодинг Nominatim/DaData + OSRM) → показ стоимости
-  4. когда нужна доставка (Сегодня / Завтра / На неделе / Не срочно)
-  5. способ оплаты (Наличные / Безнал / Перевод на карту)
-  6. телефон (кнопка «отправить контакт»)
-        → backend POST /webhooks/telegram → полный пайплайн:
-          антидубль → автоматизация продаж → AmoCRM + SQLite + Telegram + Notion
-
-Бот тонкий: логика цены и геокодинга — на backend. Здесь только диалог.
+Вешается на QR / ссылку. Единственный клиентский бот (@otdprod_bot — только админ).
 
 Запуск:  python bot.py
 Нужны env: CLIENT_BOT_TOKEN, BACKEND_URL (см. .env.example)
@@ -54,23 +47,21 @@ BACKEND_URL = os.getenv("BACKEND_URL", "https://beton-backend-wr3w.onrender.com"
 
 GRADES = ["М100", "М150", "М200", "М250", "М300", "М350", "М400", "М450"]
 
-# Варианты даты доставки → значение urgency для автоматики воронки.
-# «Сегодня» = today → sales_automation поднимает приоритет (hot_urgency_values).
-DATE_OPTIONS = ["Сегодня", "Завтра", "На неделе", "Не срочно"]
-DATE_TO_URGENCY = {
-    "Сегодня": "today",
-    "Завтра": "normal",
-    "На неделе": "normal",
-    "Не срочно": "normal",
-}
-PAYMENT_OPTIONS = ["Наличные", "Безналичный расчёт", "Перевод на карту"]
+DATE_TO_URGENCY = {"Сегодня": "today", "Завтра": "normal", "На неделе": "normal", "Не срочно": "normal"}
 
-# Состояния диалога
+# Состояния диалога ОФОРМЛЕНИЯ (консультация — вне диалога)
 VOLUME, ADDRESS, DATE, PAYMENT, PHONE = range(5)
+
+AI_HISTORY_MAX = 20
+
+
+# ── Клавиатуры ───────────────────────────────────────────────────────────────
+
+def order_button() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🧮 Рассчитать и заказать", callback_data="order")]])
 
 
 def grades_keyboard() -> InlineKeyboardMarkup:
-    """Кнопки выбора марки — по 2 в ряд."""
     rows, row = [], []
     for grade in GRADES:
         row.append(InlineKeyboardButton(grade, callback_data=f"grade:{grade}"))
@@ -83,19 +74,13 @@ def grades_keyboard() -> InlineKeyboardMarkup:
 
 
 def date_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        [["Сегодня", "Завтра"], ["На неделе", "Не срочно"]],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
+    return ReplyKeyboardMarkup([["Сегодня", "Завтра"], ["На неделе", "Не срочно"]],
+                               resize_keyboard=True, one_time_keyboard=True)
 
 
 def payment_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        [["Наличные", "Безналичный расчёт"], ["Перевод на карту"]],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
+    return ReplyKeyboardMarkup([["Наличные", "Безналичный расчёт"], ["Перевод на карту"]],
+                               resize_keyboard=True, one_time_keyboard=True)
 
 
 def phone_keyboard() -> ReplyKeyboardMarkup:
@@ -103,14 +88,88 @@ def phone_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup([[btn]], resize_keyboard=True, one_time_keyboard=True)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# ── Приветствие и консультация (AI) ──────────────────────────────────────────
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.clear()
     await update.message.reply_text(
-        "👋 Здравствуйте! Это бот заказа бетона «Бетон Экспресс», Кемерово.\n\n"
-        "Рассчитаю стоимость с доставкой за минуту.\n\n"
-        "1️⃣ Выберите марку бетона:",
-        reply_markup=grades_keyboard(),
+        "👋 Здравствуйте! Меня зовут Максим, я из «Бетон Экспресс», Кемерово.\n\n"
+        "Спросите что угодно про бетон — какая марка под ваш фундамент, сколько кубов "
+        "нужно, сколько будет стоить. Или сразу нажмите «Рассчитать и заказать» 👇",
+        reply_markup=order_button(),
     )
+
+
+async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Свободный чат с AI-продавцом (вне режима оформления)."""
+    text = update.message.text.strip()
+    history = context.user_data.setdefault("ai_history", [])
+    history.append({"role": "user", "content": text})
+
+    await update.message.chat.send_action("typing")
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(f"{BACKEND_URL}/api/ai/chat",
+                                     json={"messages": history[-AI_HISTORY_MAX:]})
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as exc:
+        logger.error("ai chat failed: %s", exc)
+        data = {"reply": None, "action": {"type": "fallback"}}
+
+    reply = data.get("reply")
+    action = data.get("action") or {}
+    if reply:
+        history.append({"role": "assistant", "content": reply})
+        # ограничиваем историю
+        del history[:-AI_HISTORY_MAX]
+
+    if action.get("type") == "start_order":
+        context.user_data["prefill"] = {"grade": action.get("grade"), "volume": action.get("volume")}
+        if reply:
+            await update.message.reply_text(reply)
+        await update.message.reply_text("Готов оформить — нажмите кнопку 👇", reply_markup=order_button())
+        return
+
+    if not reply or action.get("type") == "fallback":
+        await update.message.reply_text(
+            "Давайте посчитаю точно — нажмите «Рассчитать и заказать» 👇",
+            reply_markup=order_button(),
+        )
+        return
+
+    await update.message.reply_text(reply, reply_markup=order_button())
+
+
+# ── Оформление заказа (структурированный поток) ──────────────────────────────
+
+async def order_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Вход в оформление по кнопке. Марка/объём предзаполняются из консультации."""
+    query = update.callback_query
+    await query.answer()
+    prefill = context.user_data.get("prefill") or {}
+    grade = prefill.get("grade")
+
+    if grade in GRADES:
+        context.user_data["grade"] = grade
+        vol = prefill.get("volume")
+        if vol:
+            try:
+                context.user_data["volume"] = float(vol)
+                await query.message.reply_text(
+                    f"Марка {grade}, объём {float(vol):g} м³ ✅\n\n"
+                    "Напишите адрес доставки (город, улица, дом):",
+                    reply_markup=ReplyKeyboardRemove(),
+                )
+                return ADDRESS
+            except (TypeError, ValueError):
+                pass
+        await query.message.reply_text(
+            f"Марка {grade} ✅\n\nСколько кубов нужно? Напишите число (м³), например: 6"
+        )
+        return VOLUME
+
+    await query.message.reply_text("Выберите марку бетона:", reply_markup=grades_keyboard())
     return VOLUME
 
 
@@ -120,7 +179,7 @@ async def choose_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     grade = query.data.split(":", 1)[1]
     context.user_data["grade"] = grade
     await query.edit_message_text(
-        f"Марка: {grade} ✅\n\n2️⃣ Сколько кубов нужно? Напишите число (м³), например: 6"
+        f"Марка: {grade} ✅\n\nСколько кубов нужно? Напишите число (м³), например: 6"
     )
     return VOLUME
 
@@ -137,7 +196,7 @@ async def enter_volume(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     context.user_data["volume"] = volume
     await update.message.reply_text(
         f"Объём: {volume:g} м³ ✅\n\n"
-        "3️⃣ Напишите адрес доставки (город, улица, дом), например:\n"
+        "Напишите адрес доставки (город, улица, дом), например:\n"
         "Кемерово, проспект Ленина 90"
     )
     return ADDRESS
@@ -171,9 +230,7 @@ async def enter_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     if context.user_data.get("quote"):
         await update.message.reply_text(format_quote(context.user_data), parse_mode="HTML")
 
-    await update.message.reply_text(
-        "4️⃣ Когда нужна доставка?", reply_markup=date_keyboard()
-    )
+    await update.message.reply_text("Когда нужна доставка?", reply_markup=date_keyboard())
     return DATE
 
 
@@ -181,16 +238,14 @@ async def enter_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     choice = update.message.text.strip()
     context.user_data["delivery_date"] = choice
     context.user_data["urgency"] = DATE_TO_URGENCY.get(choice, "normal")
-    await update.message.reply_text(
-        "5️⃣ Способ оплаты?", reply_markup=payment_keyboard()
-    )
+    await update.message.reply_text("Способ оплаты?", reply_markup=payment_keyboard())
     return PAYMENT
 
 
 async def enter_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["payment_method"] = update.message.text.strip()
     await update.message.reply_text(
-        "6️⃣ Оставьте номер телефона — менеджер подтвердит заказ и время доставки 👇",
+        "Оставьте номер телефона — менеджер подтвердит заказ и время доставки 👇",
         reply_markup=phone_keyboard(),
     )
     return PHONE
@@ -277,9 +332,15 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(
-        "Отменил. Напишите /start, чтобы рассчитать заново.",
-        reply_markup=ReplyKeyboardRemove(),
+        "Отменил оформление. Можете спросить меня о бетоне или начать заново.",
+        reply_markup=order_button(),
     )
+    return ConversationHandler.END
+
+
+async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """/start во время оформления — сбрасываем и выходим из диалога."""
+    await start(update, context)
     return ConversationHandler.END
 
 
@@ -288,8 +349,9 @@ def main() -> None:
         raise SystemExit("CLIENT_BOT_TOKEN не задан. См. .env.example")
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    conv = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+
+    order_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(order_entry, pattern=r"^order$")],
         states={
             VOLUME: [
                 CallbackQueryHandler(choose_grade, pattern=r"^grade:"),
@@ -303,11 +365,18 @@ def main() -> None:
                 MessageHandler(filters.TEXT & ~filters.COMMAND, enter_phone),
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", restart)],
         allow_reentry=True,
     )
-    app.add_handler(conv)
-    logger.info("🤖 Клиентский бот заказа бетона запущен")
+
+    # Порядок важен: сначала диалог оформления (перехватывает /start только когда
+    # клиент внутри оформления — через fallback), затем /start вне оформления,
+    # затем свободный текст → AI-консультация.
+    app.add_handler(order_conv)
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, consult))
+
+    logger.info("🤖 Клиентский AI-бот заказа бетона запущен")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

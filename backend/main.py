@@ -23,6 +23,7 @@ from services.amocrm import AmoCRMService
 from services.baserow import BaserowService
 from services.calculator import BetonCalculator
 from services import geo
+from services import ai_agent
 from services.duplicate_checker import DuplicateChecker
 from services.lead_utils import coerce_amount
 from services.notifier import TelegramNotifier
@@ -127,6 +128,15 @@ class QuoteRequest(BaseModel):
     concrete_grade: str = Field(..., description="Марка бетона, напр. М300")
     volume: float = Field(..., gt=0, description="Объём в м³")
     address: str = Field(..., min_length=3, description="Адрес доставки клиента")
+
+
+class AIChatMessage(BaseModel):
+    role: str = Field(..., description="user | assistant")
+    content: str = Field(..., description="Текст сообщения (без персональных данных)")
+
+
+class AIChatRequest(BaseModel):
+    messages: list[AIChatMessage] = Field(..., description="Короткая история консультации, без PII")
 
 
 class ExternalLeadIngest(BaseModel):
@@ -655,6 +665,25 @@ async def quote(req: QuoteRequest):
     except Exception as exc:
         logger.error("Ошибка котировки: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/ai/chat")
+async def ai_chat(req: AIChatRequest, request: Request):
+    """
+    AI-консультант-продавец для клиентского бота. Ведёт свободный диалог, подбирает
+    марку, считает объём/ориентировочную цену. Персональные данные сюда НЕ передаются.
+    """
+    client_ip = get_client_ip(request)
+    if not lead_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many requests, try again in a minute")
+    try:
+        history = [m.model_dump() for m in req.messages]
+        result = await ai_agent.chat(history)
+        return {"status": "success", "reply": result.get("reply"), "action": result.get("action")}
+    except Exception as exc:
+        logger.error("Ошибка AI-чата: %s", exc)
+        # Не роняем клиента — бот перейдёт на кнопки
+        return {"status": "error", "reply": None, "action": {"type": "fallback"}}
 
 
 @app.get("/api/leads")
