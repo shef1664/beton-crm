@@ -1,23 +1,21 @@
 """
-Клиентский AI-бот заказа бетона «Бетон Экспресс», встроенный в backend-процесс.
+Единый клиентский бот заказа бетона «Бетон Экспресс» — ГИБРИД (AI + кнопки).
 
-Работает на существующем @otdprod_bot (settings.TELEGRAM_BOT_TOKEN), опрос идёт
-внутри backend (start_bot/stop_bot вызываются из main.py). Нового бота регистрировать
-не нужно. Админ-панель убрана; уведомления менеджеру шлёт notifier (по HTTP).
+Два режима:
+  • Консультация (свободный чат) — клиент пишет как человеку, AI-продавец (Claude на
+    backend, /api/ai/chat) объясняет марки/фундаменты, считает объём по размерам,
+    ориентирует по цене и доводит до заказа. Персональные данные СЮДА НЕ идут.
+  • Оформление заказа (кнопки) — существующий структурированный поток:
+    марка → объём → адрес → /api/quote → дата → оплата → телефон(кнопка) → CRM.
 
-Гибрид:
-  • Консультация (свободный чат) → POST /api/ai/chat (Claude, tool-use).
-  • Оформление заказа (кнопки): марка → объём → адрес → /api/quote (зоны доставки)
-    → дата → оплата → телефон(кнопка) → /webhooks/telegram → CRM.
-  • Отдел продаж: карточка заявки в группу + живая передача менеджеру (оператор).
+Вешается на QR / ссылку. Единственный клиентский бот (@otdprod_bot — только админ).
 
-Персональные данные (телефон, адрес) в нейросеть не передаются.
+Запуск:  python bot.py
+Нужны env: CLIENT_BOT_TOKEN, BACKEND_URL (см. .env.example)
 """
 
-import asyncio
 import logging
 import os
-from typing import Optional
 
 import httpx
 from telegram import (
@@ -29,7 +27,7 @@ from telegram import (
     Update,
 )
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
@@ -38,28 +36,34 @@ from telegram.ext import (
     filters,
 )
 
-from config import settings
-
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
-# Бот и backend в одном процессе — зовём свои эндпоинты по localhost.
-_PORT = os.getenv("PORT", "8000")
-BACKEND_URL = f"http://127.0.0.1:{_PORT}"
-# Группа отдела продаж (добавьте @otdprod_bot в группу, укажите её chat_id).
+# Токен клиентского бота. Можно переиспользовать существующий «бетонный» бот
+# (@otdprod_bot): задайте CLIENT_BOT_TOKEN = его токен, ИЛИ просто дайте боту тот же
+# TELEGRAM_BOT_TOKEN. Тогда на backend выключите RUN_ADMIN_BOT (иначе конфликт опроса).
+BOT_TOKEN = os.getenv("CLIENT_BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN", "")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://beton-backend-wr3w.onrender.com").rstrip("/")
+# Группа отдела продаж (добавьте бота в группу и укажите её chat_id, обычно отрицательный)
 SALES_CHAT_ID = int(os.getenv("SALES_CHAT_ID", "0") or 0)
 
 GRADES = ["М100", "М150", "М200", "М250", "М300", "М350", "М400", "М450"]
+
 DATE_TO_URGENCY = {"Сегодня": "today", "Завтра": "normal", "На неделе": "normal", "Не срочно": "normal"}
+
+# Состояния диалога ОФОРМЛЕНИЯ (консультация — вне диалога)
 VOLUME, ADDRESS, DATE, PAYMENT, PHONE = range(5)
+
 AI_HISTORY_MAX = 20
 
-telegram_app: Optional[Application] = None
-polling_task: Optional[asyncio.Task] = None
 
-
-# ── Клавиатуры / утилиты ─────────────────────────────────────────────────────
+# ── Клавиатуры ───────────────────────────────────────────────────────────────
 
 def client_keyboard() -> InlineKeyboardMarkup:
+    """Кнопки под сообщениями клиенту: оформить заказ / позвать менеджера."""
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🧮 Рассчитать и заказать", callback_data="order")],
         [InlineKeyboardButton("👤 Позвать менеджера", callback_data="human")],
@@ -93,14 +97,6 @@ def phone_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup([[btn]], resize_keyboard=True, one_time_keyboard=True)
 
 
-def _rub(n) -> str:
-    return f"{int(n):,} ₽".replace(",", " ")
-
-
-def _range(a, b) -> str:
-    return _rub(a) if a == b else f"{_rub(a)}–{_rub(b)}"
-
-
 # ── Приветствие и консультация (AI) ──────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -115,6 +111,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Свободный чат с AI-продавцом (вне режима оформления)."""
+    # Режим оператора: сообщения клиента идут живому менеджеру, не в AI.
     if update.effective_user.id in _operators(context):
         await relay_to_sales(update, context)
         return
@@ -138,6 +136,7 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     action = data.get("action") or {}
     if reply:
         history.append({"role": "assistant", "content": reply})
+        # ограничиваем историю
         del history[:-AI_HISTORY_MAX]
 
     if action.get("type") == "start_order":
@@ -174,6 +173,7 @@ def _relay_map(context) -> dict:
 
 
 async def start_operator(update: Update, context: ContextTypes.DEFAULT_TYPE, reason: str = "") -> None:
+    """Подключить живого менеджера: уведомить группу отдела продаж, включить реле."""
     msg = update.effective_message
     if not SALES_CHAT_ID:
         await msg.reply_text(
@@ -208,11 +208,13 @@ async def start_operator(update: Update, context: ContextTypes.DEFAULT_TYPE, rea
 
 
 async def call_manager(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Кнопка «Позвать менеджера»."""
     await update.callback_query.answer()
     await start_operator(update, context)
 
 
 async def relay_to_sales(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Сообщение клиента в режиме оператора → в группу отдела продаж."""
     user = update.effective_user
     text = update.message.text
     try:
@@ -223,6 +225,7 @@ async def relay_to_sales(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def sales_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Ответ менеджера в группе (reply) → клиенту. «/end» завершает диалог."""
     reply_to = update.message.reply_to_message
     if not reply_to:
         return
@@ -241,17 +244,21 @@ async def sales_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     try:
         await context.bot.send_message(client_id, f"👨‍💼 Менеджер: {text}")
+        # Ответы клиента снова придут в группу через relay_to_sales (новые сообщения),
+        # поэтому карту reply тут не трогаем.
     except Exception as exc:
         logger.error("sales_reply deliver failed: %s", exc)
 
 
-# ── Оформление заказа ────────────────────────────────────────────────────────
+# ── Оформление заказа (структурированный поток) ──────────────────────────────
 
 async def order_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Вход в оформление по кнопке. Марка/объём предзаполняются из консультации."""
     query = update.callback_query
     await query.answer()
     prefill = context.user_data.get("prefill") or {}
     grade = prefill.get("grade")
+
     if grade in GRADES:
         context.user_data["grade"] = grade
         vol = prefill.get("volume")
@@ -270,6 +277,7 @@ async def order_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             f"Марка {grade} ✅\n\nСколько кубов нужно? Напишите число (м³), например: 6"
         )
         return VOLUME
+
     await query.message.reply_text("Выберите марку бетона:", reply_markup=grades_keyboard())
     return VOLUME
 
@@ -352,6 +360,14 @@ async def enter_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return PHONE
 
 
+def _rub(n) -> str:
+    return f"{int(n):,} ₽".replace(",", " ")
+
+
+def _range(a, b) -> str:
+    return _rub(a) if a == b else f"{_rub(a)}–{_rub(b)}"
+
+
 def format_quote(ud: dict) -> str:
     q = ud.get("quote") or {}
     grade = ud["grade"]
@@ -360,7 +376,7 @@ def format_quote(ud: dict) -> str:
     if q.get("zone"):
         lines.append(f"Зона доставки: {q['zone']}")
     if q.get("mixers", 1) > 1:
-        lines.append(f"Подач миксера: {q['mixers']}")
+        lines.append(f"Подач миксера: {q['mixers']} (по {ud.get('grade')})")
 
     beton = q.get("beton_cost")
     if beton is not None:
@@ -403,7 +419,7 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             "payment_method": ud.get("payment_method"),
             "distance": quote.get("distance_km"),
             "calculated_amount": amount,
-            "comment": f"Заявка из Telegram-бота (tg_user={update.effective_user.id})",
+            "comment": f"Заявка из клиентского Telegram-бота (tg_user={update.effective_user.id})",
         }
     }
     try:
@@ -422,6 +438,7 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         logger.error("lead create failed: %s", exc)
         text = "✅ Данные приняты. Менеджер свяжется с вами вручную."
 
+    # Карточка заявки в группу отдела продаж
     if SALES_CHAT_ID:
         rows = [
             "🧱 <b>Новая заявка из бота</b>",
@@ -458,18 +475,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """/start во время оформления — сбрасываем и выходим из диалога."""
     await start(update, context)
     return ConversationHandler.END
 
 
-# ── Сборка и запуск (в backend-процессе) ─────────────────────────────────────
+def main() -> None:
+    if not BOT_TOKEN:
+        raise SystemExit("CLIENT_BOT_TOKEN не задан. См. .env.example")
 
-def create_bot() -> Optional[Application]:
-    if not settings.TELEGRAM_BOT_TOKEN:
-        logger.warning("TELEGRAM_BOT_TOKEN не задан — клиентский бот отключён")
-        return None
-
-    app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     order_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(order_entry, pattern=r"^order$")],
@@ -490,6 +505,10 @@ def create_bot() -> Optional[Application]:
         allow_reentry=True,
     )
 
+    # Порядок важен: сначала диалог оформления (перехватывает /start только когда
+    # клиент внутри оформления — через fallback), затем /start вне оформления,
+    # кнопка «Позвать менеджера», ответы менеджеров из группы, и последним —
+    # свободный текст в личке → AI-консультация (или реле оператора).
     app.add_handler(order_conv)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(call_manager, pattern=r"^human$"))
@@ -499,62 +518,9 @@ def create_bot() -> Optional[Application]:
     app.add_handler(MessageHandler(
         filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, consult))
 
-    return app
+    logger.info("🤖 Клиентский AI-бот заказа бетона запущен")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
-async def _polling_loop(app: Application):
-    offset = None
-    while True:
-        try:
-            updates = await app.bot.get_updates(offset=offset, timeout=30)
-            for update in updates:
-                offset = update.update_id + 1
-                await app.process_update(update)
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logger.error(f"Telegram polling failed: {e}")
-            await asyncio.sleep(5)
-
-
-async def start_bot() -> bool:
-    global telegram_app, polling_task
-    if telegram_app is not None:
-        return True
-    telegram_app = create_bot()
-    if not telegram_app:
-        return False
-    try:
-        await telegram_app.initialize()
-        await telegram_app.start()
-        polling_task = asyncio.create_task(_polling_loop(telegram_app), name="telegram-bot-polling")
-        logger.info("Клиентский AI-бот запущен (в backend)")
-        return True
-    except Exception as e:
-        logger.error(f"Telegram bot start failed: {e}")
-        try:
-            await telegram_app.shutdown()
-        except Exception:
-            pass
-        telegram_app = None
-        polling_task = None
-        return False
-
-
-async def stop_bot():
-    global telegram_app, polling_task
-    if polling_task:
-        polling_task.cancel()
-        try:
-            await polling_task
-        except asyncio.CancelledError:
-            pass
-        polling_task = None
-    if telegram_app:
-        try:
-            await telegram_app.stop()
-            await telegram_app.shutdown()
-            logger.info("Telegram бот остановлен")
-        except Exception as e:
-            logger.error(f"Telegram bot stop failed: {e}")
-        telegram_app = None
+if __name__ == "__main__":
+    main()

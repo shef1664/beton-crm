@@ -19,6 +19,17 @@ services:
         sync: false
       - key: TELEGRAM_ADMIN_ID
         sync: false
+      # AI-консультант (Claude). Ключ обязателен для работы нейросети в боте.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: "claude-opus-4-8"
+      # Группа отдела продаж: добавьте @otdprod_bot в группу и укажите её chat_id.
+      - key: SALES_CHAT_ID
+        sync: false
+      # Точный геокодинг района по улице (опционально). Есть в ~/.secrets/dadata.json.
+      - key: DADATA_TOKEN
+        sync: false
       - key: AMOCRM_DOMAIN
         sync: false
       - key: AMOCRM_ACCESS_TOKEN

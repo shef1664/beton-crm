@@ -64,7 +64,14 @@ class Settings:
         "М400": 8000,
         "М450": 8400,
     }
-    DELIVERY_PRICE_PER_KM: float = 150
+    # Доставка. Модель: (км × ставка_за_км + база_за_подачу) × объём_к_оплате,
+    # где объём_к_оплате = max(MIN_BILLABLE_VOLUME, ceil(объём)).
+    # По этой формуле город (~10 км, 6 м³) ≈ 6 000 ₽ — совпадает с реальным чеком.
+    DELIVERY_PER_KM_PER_M3: float = float(os.getenv("DELIVERY_PER_KM_PER_M3", "35"))   # ₽ за км за 1 м³
+    DELIVERY_BASE_PER_M3: float = float(os.getenv("DELIVERY_BASE_PER_M3", "650"))       # ₽ за подачу за 1 м³
+    MIN_BILLABLE_VOLUME: float = float(os.getenv("MIN_BILLABLE_VOLUME", "6"))            # минимальный объём к оплате, м³
+    # Устаревшая линейная ставка (не используется в расчёте, оставлена для совместимости)
+    DELIVERY_PRICE_PER_KM: float = float(os.getenv("DELIVERY_PRICE_PER_KM", "150"))
     MIXER_VOLUME: float = 7
 
     SUPPORTED_SOURCE_PLATFORMS: tuple[str, ...] = (

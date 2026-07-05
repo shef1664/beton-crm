@@ -7,6 +7,7 @@ import asyncio
 from datetime import datetime
 import json
 import logging
+import math
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -22,6 +23,8 @@ from config import settings
 from services.amocrm import AmoCRMService
 from services.baserow import BaserowService
 from services.calculator import BetonCalculator
+from services import geo
+from services import ai_agent
 from services.duplicate_checker import DuplicateChecker
 from services.lead_utils import coerce_amount
 from services.notifier import TelegramNotifier
@@ -120,6 +123,21 @@ class CalculateRequest(BaseModel):
     concrete_grade: str
     volume: float
     distance: Optional[float] = 0
+
+
+class QuoteRequest(BaseModel):
+    concrete_grade: str = Field(..., description="Марка бетона, напр. М300")
+    volume: float = Field(..., gt=0, description="Объём в м³")
+    address: str = Field(..., min_length=3, description="Адрес доставки клиента")
+
+
+class AIChatMessage(BaseModel):
+    role: str = Field(..., description="user | assistant")
+    content: str = Field(..., description="Текст сообщения (без персональных данных)")
+
+
+class AIChatRequest(BaseModel):
+    messages: list[AIChatMessage] = Field(..., description="Короткая история консультации, без PII")
 
 
 class ExternalLeadIngest(BaseModel):
@@ -618,6 +636,80 @@ async def calculate(calc_data: CalculateRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.post("/api/quote")
+async def quote(req: QuoteRequest):
+    """
+    Котировка для клиентского бота: адрес → зона доставки → фикс-цена (× число
+    подач). Зона без цены / непонятный дальний адрес → доставку уточняет менеджер.
+    Стоимость бетона — по марке и объёму.
+    """
+    if req.concrete_grade not in settings.BETON_PRICES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Неизвестная марка. Доступны: {', '.join(settings.BETON_PRICES)}",
+        )
+    try:
+        price_per_m3 = settings.BETON_PRICES[req.concrete_grade]
+        beton_cost = round(price_per_m3 * req.volume, 2)
+        mixers = max(1, math.ceil(req.volume / settings.MIXER_VOLUME))
+
+        zone = geo.match_zone(req.address)
+        if zone and zone.get("price_min") is not None:
+            dmin = zone["price_min"] * mixers
+            dmax = zone["price_max"] * mixers
+            return {
+                "status": "success",
+                "zone": zone["name"],
+                "distance_km": zone.get("km"),
+                "deliverable": True,
+                "needs_manager": False,
+                "mixers": mixers,
+                "beton_cost": beton_cost,
+                "delivery_min": dmin,
+                "delivery_max": dmax,
+                "total_min": round(beton_cost + dmin, 2),
+                "total_max": round(beton_cost + dmax, 2),
+                "price_per_m3": price_per_m3,
+            }
+        # зона без цены или неизвестный дальний адрес → на менеджера
+        return {
+            "status": "success",
+            "zone": zone["name"] if zone else None,
+            "distance_km": zone.get("km") if zone else None,
+            "deliverable": False,
+            "needs_manager": True,
+            "mixers": mixers,
+            "beton_cost": beton_cost,
+            "delivery_min": None,
+            "delivery_max": None,
+            "total_min": None,
+            "total_max": None,
+            "price_per_m3": price_per_m3,
+        }
+    except Exception as exc:
+        logger.error("Ошибка котировки: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/ai/chat")
+async def ai_chat(req: AIChatRequest, request: Request):
+    """
+    AI-консультант-продавец для клиентского бота. Ведёт свободный диалог, подбирает
+    марку, считает объём/ориентировочную цену. Персональные данные сюда НЕ передаются.
+    """
+    client_ip = get_client_ip(request)
+    if not lead_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many requests, try again in a minute")
+    try:
+        history = [m.model_dump() for m in req.messages]
+        result = await ai_agent.chat(history)
+        return {"status": "success", "reply": result.get("reply"), "action": result.get("action")}
+    except Exception as exc:
+        logger.error("Ошибка AI-чата: %s", exc)
+        # Не роняем клиента — бот перейдёт на кнопки
+        return {"status": "error", "reply": None, "action": {"type": "fallback"}}
+
+
 @app.get("/api/leads")
 async def get_leads(status: Optional[str] = None, limit: int = 50):
     try:
@@ -804,8 +896,14 @@ async def startup_event():
     if os.getenv("AVITO_CLIENT_ID"):
         asyncio.create_task(avito_poll_loop(amocrm))
         logger.info("   Avito poller: enabled")
-    bot_started = await start_telegram_bot()
-    logger.info("   Telegram bot: %s", "started" if bot_started else "disabled or unavailable")
+    # Клиентский AI-бот встроен в backend (@otdprod_bot). Флаг RUN_BOT=false отключает
+    # опрос (например, если тот же токен вы отдали отдельному процессу) — уведомления
+    # менеджеру идут по HTTP и от этого опроса не зависят.
+    if os.getenv("RUN_BOT", "true").strip().lower() in ("1", "true", "yes", "on"):
+        bot_started = await start_telegram_bot()
+        logger.info("   Telegram bot: %s", "started" if bot_started else "disabled or unavailable")
+    else:
+        logger.info("   Telegram bot: disabled (RUN_BOT=false)")
     logger.info("Backend API ready")
 
 

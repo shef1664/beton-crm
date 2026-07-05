@@ -1,0 +1,47 @@
+{
+  "_comment": "Справочник зон доставки. km — примерное плечо по дорогам от завода (Кемерово, ул. Дружбы, 43). Уточните km и впишите реальный чек (price_delivery, ₽ за подачу до 7 м³) — по ним откалибруем формулу/зоны.",
+  "plant": {
+    "address": "Кемерово, ул. Дружбы, 43",
+    "district": "Заводский",
+    "lat": null,
+    "lon": null
+  },
+  "districts": [
+    {"name": "Заводский р-н (завод)", "aliases": ["заводск", "дружбы"], "km": 2, "price_delivery": {"min": 6000, "max": 7000}},
+    {"name": "Центральный р-н", "aliases": ["центральн"], "km": 4, "price_delivery": {"min": 6000, "max": 6000}},
+    {"name": "Пионер", "aliases": ["пионер"], "km": 5, "price_delivery": {"min": 6000, "max": 6000}},
+    {"name": "Ленинский р-н / ФПК", "aliases": ["ленинск р", "фпк", "шалготарьян"], "km": 6, "price_delivery": {"min": 6000, "max": 6000}},
+    {"name": "Кировский р-н", "aliases": ["кировск"], "km": 9, "price_delivery": {"min": 6000, "max": 6000}},
+    {"name": "Рудничный р-н", "aliases": ["рудничн"], "km": 10, "price_delivery": {"min": 6000, "max": 6000}},
+    {"name": "Лесная Поляна", "aliases": ["лесная поляна"], "km": 14, "price_delivery": {"min": 7000, "max": 8000}},
+    {"name": "Андреевка", "aliases": ["андреевк"], "km": 16, "price_delivery": {"min": 7000, "max": 8000}},
+    {"name": "Кедровка", "aliases": ["кедровк"], "km": 16, "price_delivery": {"min": 8000, "max": 9000}}
+  ],
+  "settlements": [
+    {"name": "Пригородный", "aliases": ["пригородн"], "km": 7, "price_delivery": {"min": 8000, "max": 8000}},
+    {"name": "Ягуново / Ягуновский", "aliases": ["ягуново", "ягуновск"], "km": 13, "price_delivery": {"min": 9000, "max": 9000}},
+    {"name": "Металлплощадка", "aliases": ["металлплощадк"], "km": 12, "price_delivery": {"min": 6000, "max": 6000}},
+    {"name": "Кузбасский", "aliases": ["кузбасск"], "km": 12, "price_delivery": {"min": 10000, "max": 10000}},
+    {"name": "Звёздный", "aliases": ["звёздн", "звездн"], "km": 14, "price_delivery": {"min": 10000, "max": 10000}},
+    {"name": "Сухово", "aliases": ["сухово"], "km": 18, "price_delivery": {"min": 6000, "max": 6000}},
+    {"name": "Берёзово", "aliases": ["берёзово", "березово"], "km": 22, "price_delivery": {"min": 7000, "max": 8000}},
+    {"name": "Верхотомское", "aliases": ["верхотомск", "верхотомка", "керхотомка"], "km": 25, "price_delivery": {"min": 9000, "max": 9000}},
+    {"name": "Елыкаево", "aliases": ["елыкаево"], "km": 28, "price_delivery": {"min": 10000, "max": 10000}},
+    {"name": "Берёзовский (город)", "aliases": ["берёзовск", "березовск"], "km": 28, "price_delivery": {"min": 12000, "max": 12000}},
+    {"name": "Топки", "aliases": ["топки"], "km": 35, "price_delivery": {"min": 14000, "max": 14000}},
+    {"name": "Плотниково", "aliases": ["плотниково"], "km": 40, "price_delivery": {"min": 14000, "max": 14000}},
+    {"name": "Барзас", "aliases": ["барзас"], "km": 45, "price_delivery": null},
+    {"name": "Промышленная", "aliases": ["промышленная"], "km": 55, "price_delivery": {"min": 20000, "max": 20000}},
+    {"name": "Яшкино", "aliases": ["яшкино"], "km": 55, "price_delivery": null},
+    {"name": "Крапивинский", "aliases": ["крапивин"], "km": 88, "price_delivery": null},
+    {"name": "Тайга", "aliases": ["тайга"], "km": 90, "price_delivery": null},
+    {"name": "Ленинск-Кузнецкий", "aliases": ["ленинск-кузнец", "ленинск кузнец"], "km": 100, "price_delivery": null},
+    {"name": "Полысаево", "aliases": ["полысаево"], "km": 108, "price_delivery": null},
+    {"name": "Анжеро-Судженск", "aliases": ["анжеро", "судженск"], "km": 110, "price_delivery": null},
+    {"name": "Юрга", "aliases": ["юрга"], "km": 112, "price_delivery": null},
+    {"name": "Белово", "aliases": ["белово"], "km": 130, "price_delivery": null},
+    {"name": "Гурьевск", "aliases": ["гурьевск"], "km": 148, "price_delivery": null},
+    {"name": "Салаир", "aliases": ["салаир"], "km": 150, "price_delivery": null},
+    {"name": "Мариинск", "aliases": ["мариинск"], "km": 150, "price_delivery": null}
+  ]
+}
