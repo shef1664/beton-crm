@@ -44,6 +44,8 @@ logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("CLIENT_BOT_TOKEN", "")
 BACKEND_URL = os.getenv("BACKEND_URL", "https://beton-backend-wr3w.onrender.com").rstrip("/")
+# Группа отдела продаж (добавьте бота в группу и укажите её chat_id, обычно отрицательный)
+SALES_CHAT_ID = int(os.getenv("SALES_CHAT_ID", "0") or 0)
 
 GRADES = ["М100", "М150", "М200", "М250", "М300", "М350", "М400", "М450"]
 
@@ -57,8 +59,12 @@ AI_HISTORY_MAX = 20
 
 # ── Клавиатуры ───────────────────────────────────────────────────────────────
 
-def order_button() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🧮 Рассчитать и заказать", callback_data="order")]])
+def client_keyboard() -> InlineKeyboardMarkup:
+    """Кнопки под сообщениями клиенту: оформить заказ / позвать менеджера."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🧮 Рассчитать и заказать", callback_data="order")],
+        [InlineKeyboardButton("👤 Позвать менеджера", callback_data="human")],
+    ])
 
 
 def grades_keyboard() -> InlineKeyboardMarkup:
@@ -91,17 +97,23 @@ def phone_keyboard() -> ReplyKeyboardMarkup:
 # ── Приветствие и консультация (AI) ──────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _operators(context).discard(update.effective_user.id)
     context.user_data.clear()
     await update.message.reply_text(
         "👋 Здравствуйте! Меня зовут Максим, я из «Бетон Экспресс», Кемерово.\n\n"
         "Спросите что угодно про бетон — какая марка под ваш фундамент, сколько кубов "
         "нужно, сколько будет стоить. Или сразу нажмите «Рассчитать и заказать» 👇",
-        reply_markup=order_button(),
+        reply_markup=client_keyboard(),
     )
 
 
 async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Свободный чат с AI-продавцом (вне режима оформления)."""
+    # Режим оператора: сообщения клиента идут живому менеджеру, не в AI.
+    if update.effective_user.id in _operators(context):
+        await relay_to_sales(update, context)
+        return
+
     text = update.message.text.strip()
     history = context.user_data.setdefault("ai_history", [])
     history.append({"role": "user", "content": text})
@@ -128,17 +140,111 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context.user_data["prefill"] = {"grade": action.get("grade"), "volume": action.get("volume")}
         if reply:
             await update.message.reply_text(reply)
-        await update.message.reply_text("Готов оформить — нажмите кнопку 👇", reply_markup=order_button())
+        await update.message.reply_text("Готов оформить — нажмите кнопку 👇", reply_markup=client_keyboard())
+        return
+
+    if action.get("type") == "call_human":
+        if reply:
+            await update.message.reply_text(reply)
+        await start_operator(update, context, reason=action.get("reason", ""))
         return
 
     if not reply or action.get("type") == "fallback":
         await update.message.reply_text(
             "Давайте посчитаю точно — нажмите «Рассчитать и заказать» 👇",
-            reply_markup=order_button(),
+            reply_markup=client_keyboard(),
         )
         return
 
-    await update.message.reply_text(reply, reply_markup=order_button())
+    await update.message.reply_text(reply, reply_markup=client_keyboard())
+
+
+# ── Живая передача менеджеру (режим оператора) ───────────────────────────────
+
+def _operators(context) -> set:
+    return context.bot_data.setdefault("operators", set())
+
+
+def _relay_map(context) -> dict:
+    return context.bot_data.setdefault("relay", {})
+
+
+async def start_operator(update: Update, context: ContextTypes.DEFAULT_TYPE, reason: str = "") -> None:
+    """Подключить живого менеджера: уведомить группу отдела продаж, включить реле."""
+    msg = update.effective_message
+    if not SALES_CHAT_ID:
+        await msg.reply_text(
+            "Передаю менеджеру — он свяжется с вами. Можете оставить заявку кнопкой ниже.",
+            reply_markup=client_keyboard(),
+        )
+        return
+    user = update.effective_user
+    _operators(context).add(user.id)
+
+    hist = context.user_data.get("ai_history", [])
+    tail = "\n".join(f"{'Клиент' if m['role'] == 'user' else 'Бот'}: {m['content']}" for m in hist[-6:])
+    header = (
+        f"🔔 Клиент просит менеджера\n"
+        f"Имя: {user.first_name} @{user.username or '—'} (id {user.id})"
+    )
+    if reason:
+        header += f"\nПричина: {reason}"
+    if tail:
+        header += f"\n\nПоследние сообщения:\n{tail}"
+    header += "\n\nОтветьте reply на это сообщение, чтобы написать клиенту. «/end» — завершить."
+    try:
+        sent = await context.bot.send_message(SALES_CHAT_ID, header)
+        _relay_map(context)[sent.message_id] = user.id
+    except Exception as exc:
+        logger.error("sales notify failed: %s", exc)
+        _operators(context).discard(user.id)
+        await msg.reply_text("Менеджер свяжется с вами. Оставьте, пожалуйста, заявку 👇",
+                             reply_markup=client_keyboard())
+        return
+    await msg.reply_text("✅ Передал менеджеру отдела продаж — скоро ответит. Пишите прямо здесь.")
+
+
+async def call_manager(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Кнопка «Позвать менеджера»."""
+    await update.callback_query.answer()
+    await start_operator(update, context)
+
+
+async def relay_to_sales(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Сообщение клиента в режиме оператора → в группу отдела продаж."""
+    user = update.effective_user
+    text = update.message.text
+    try:
+        sent = await context.bot.send_message(SALES_CHAT_ID, f"💬 {user.first_name} (id {user.id}): {text}")
+        _relay_map(context)[sent.message_id] = user.id
+    except Exception as exc:
+        logger.error("relay to sales failed: %s", exc)
+
+
+async def sales_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Ответ менеджера в группе (reply) → клиенту. «/end» завершает диалог."""
+    reply_to = update.message.reply_to_message
+    if not reply_to:
+        return
+    client_id = _relay_map(context).get(reply_to.message_id)
+    if not client_id:
+        return
+    text = (update.message.text or "").strip()
+    if text == "/end":
+        _operators(context).discard(client_id)
+        try:
+            await context.bot.send_message(client_id, "Менеджер завершил диалог. Спросите ещё что-нибудь или оформите заказ 👇",
+                                           reply_markup=client_keyboard())
+        except Exception:
+            pass
+        await update.message.reply_text("Диалог с клиентом завершён.")
+        return
+    try:
+        await context.bot.send_message(client_id, f"👨‍💼 Менеджер: {text}")
+        # Ответы клиента снова придут в группу через relay_to_sales (новые сообщения),
+        # поэтому карту reply тут не трогаем.
+    except Exception as exc:
+        logger.error("sales_reply deliver failed: %s", exc)
 
 
 # ── Оформление заказа (структурированный поток) ──────────────────────────────
@@ -326,6 +432,25 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         logger.error("lead create failed: %s", exc)
         text = "✅ Данные приняты. Менеджер свяжется с вами вручную."
 
+    # Карточка заявки в группу отдела продаж
+    if SALES_CHAT_ID:
+        rows = [
+            "🧱 <b>Новая заявка из бота</b>",
+            f"Имя: {name}",
+            f"Телефон: {phone}",
+            f"Марка: {ud.get('grade') or '—'}",
+            f"Объём: {ud.get('volume') or '—'} м³",
+            f"Адрес: {ud.get('address') or '—'}",
+            f"Когда: {ud.get('delivery_date') or '—'}",
+            f"Оплата: {ud.get('payment_method') or '—'}",
+        ]
+        if calc.get("total"):
+            rows.append(f"Сумма (ориент.): {int(calc['total']):,} ₽".replace(",", " "))
+        try:
+            await context.bot.send_message(SALES_CHAT_ID, "\n".join(rows), parse_mode="HTML")
+        except Exception as exc:
+            logger.error("sales card failed: %s", exc)
+
     await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
@@ -333,7 +458,7 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(
         "Отменил оформление. Можете спросить меня о бетоне или начать заново.",
-        reply_markup=order_button(),
+        reply_markup=client_keyboard(),
     )
     return ConversationHandler.END
 
@@ -371,10 +496,16 @@ def main() -> None:
 
     # Порядок важен: сначала диалог оформления (перехватывает /start только когда
     # клиент внутри оформления — через fallback), затем /start вне оформления,
-    # затем свободный текст → AI-консультация.
+    # кнопка «Позвать менеджера», ответы менеджеров из группы, и последним —
+    # свободный текст в личке → AI-консультация (или реле оператора).
     app.add_handler(order_conv)
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, consult))
+    app.add_handler(CallbackQueryHandler(call_manager, pattern=r"^human$"))
+    if SALES_CHAT_ID:
+        app.add_handler(MessageHandler(
+            filters.Chat(SALES_CHAT_ID) & filters.REPLY & filters.TEXT, sales_reply))
+    app.add_handler(MessageHandler(
+        filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, consult))
 
     logger.info("🤖 Клиентский AI-бот заказа бетона запущен")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

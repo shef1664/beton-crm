@@ -103,6 +103,8 @@ SYSTEM_PROMPT = f"""Ты — Максим, менеджер по продажа�
 - НИКОГДА не спрашивай телефон и точный адрес — это сделает бот кнопками. Если клиент
   готов оформить заказ (или просит рассчитать доставку/цену итог) — вызови ready_to_order
   с известными маркой и объёмом.
+- Если клиент просит живого менеджера, недоволен, торгуется, спрашивает про спецусловия/
+  юрлицо/рекламацию или что-то вне твоей компетенции — вызови call_human.
 - Не выдумывай характеристики и цены — бери из данных выше. Если не знаешь — честно скажи,
   что уточнит менеджер.
 - Отвечай на русском. Держи сообщения краткими (2–5 предложений)."""
@@ -158,6 +160,18 @@ TOOLS = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "call_human",
+        "description": "Вызови, когда клиент просит живого менеджера/оператора, недоволен, торгуется по цене, задаёт вопрос вне твоей компетенции (нестандартный объект, юрлицо, спецусловия, рекламация). Бот подключит живого сотрудника отдела продаж.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "reason": {"type": "string", "description": "Кратко причина передачи менеджеру"},
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -191,6 +205,10 @@ def _run_tool(name: str, args: dict, state: dict) -> str:
         if name == "ready_to_order":
             state["action"] = {"type": "start_order", "grade": args.get("grade"), "volume": args.get("volume")}
             return json.dumps({"ok": True, "note": "Переключаю на оформление заказа кнопками."}, ensure_ascii=False)
+
+        if name == "call_human":
+            state["action"] = {"type": "call_human", "reason": args.get("reason", "")}
+            return json.dumps({"ok": True, "note": "Подключаю живого менеджера отдела продаж."}, ensure_ascii=False)
 
         return "Ошибка: неизвестный инструмент."
     except Exception as exc:
