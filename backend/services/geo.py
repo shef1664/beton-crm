@@ -1,20 +1,26 @@
 """
 Бесплатное определение расстояния «адрес клиента → завод».
 
-Цель — «примерно понимать» километраж и стоимость доставки без платных ключей.
-Стек (всё бесплатно, без API-ключей):
+Цель — «примерно понимать» километраж и стоимость доставки.
 
-  1. Nominatim (OpenStreetMap)  — адрес → координаты (гео­кодинг)
-  2. OSRM (public demo server)  — координаты → расстояние по дорогам (км)
-  3. Haversine (формула)        — офлайн-фолбэк, если сервисы недоступны
+Геокодинг (адрес → координаты) — переключаемый провайдер через env GEO_PROVIDER:
+  - "nominatim" (по умолчанию) — OpenStreetMap, БЕЗ ключа, бесплатно
+  - "dadata"                    — DaData Suggestions API, нужен DADATA_TOKEN
+                                  (10 000 запросов/день бесплатно, точнее по РФ)
+Если задан DADATA_TOKEN, провайдер автоматически становится "dadata",
+а Nominatim остаётся фолбэком при сбое.
 
-Любой шаг может «отвалиться» — тогда мягко деградируем к следующему,
-в худшем случае считаем расстояние по прямой ×1.35 (поправка на дороги).
+Маршрут (координаты → км по дорогам):
+  - OSRM (public demo server)  — БЕЗ ключа, бесплатно
+  - Haversine (формула)        — офлайн-фолбэк ×1.35, если OSRM недоступен
+
+Любой шаг может «отвалиться» — тогда мягко деградируем к следующему.
 
 Ограничения бесплатных сервисов:
   - Nominatim: не чаще ~1 запроса/сек, обязателен User-Agent (см. usage policy).
   - OSRM demo: без гарантий доступности, для production лучше поднять свой.
-Оба сервиса подходят для оценки «примерно», а не для юридически точного расчёта.
+  - DaData Suggestions: 10k/день, коммерческое использование по лицензии DaData.
+Всё это оценка «примерно», а не юридически точный расчёт доставки.
 """
 
 import logging
@@ -41,6 +47,15 @@ _USER_AGENT = os.getenv("GEO_USER_AGENT", "beton42-crm/1.0 (shef1664@gmail.com)"
 _NOMINATIM = os.getenv("NOMINATIM_URL", "https://nominatim.openstreetmap.org/search")
 _OSRM = os.getenv("OSRM_URL", "https://router.project-osrm.org/route/v1/driving")
 
+# DaData — точный геокодинг по адресам РФ. Нужен только токен (Suggestions API).
+_DADATA_TOKEN = os.getenv("DADATA_TOKEN", "").strip()
+_DADATA_URL = os.getenv(
+    "DADATA_URL",
+    "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address",
+)
+# Провайдер геокодинга: dadata, если задан токен, иначе nominatim. Override через env.
+GEO_PROVIDER = os.getenv("GEO_PROVIDER", "dadata" if _DADATA_TOKEN else "nominatim").lower()
+
 _TIMEOUT = httpx.Timeout(12.0)
 # Поправочный коэффициент «прямая → дорога», когда OSRM недоступен.
 _ROAD_FACTOR = 1.35
@@ -56,7 +71,47 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return r * 2 * math.asin(math.sqrt(a))
 
 
-async def geocode(address: str) -> dict | None:
+async def geocode_dadata(address: str) -> dict | None:
+    """
+    Адрес → координаты через DaData Suggestions API. Нужен DADATA_TOKEN.
+    10 000 запросов/день бесплатно, лучшая точность по адресам РФ.
+    Возвращает {"lat", "lon", "display_name"} или None.
+    """
+    if not _DADATA_TOKEN:
+        return None
+    query = address.strip()
+    if not query:
+        return None
+    if "кемеров" not in query.lower():
+        query = f"Кемерово, {query}"
+    headers = {
+        "Authorization": f"Token {_DADATA_TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.post(_DADATA_URL, headers=headers, json={"query": query, "count": 1})
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as exc:
+        logger.warning("DaData geocode failed for %r: %s", address, exc)
+        return None
+    suggestions = data.get("suggestions") or []
+    if not suggestions:
+        return None
+    top = suggestions[0]
+    d = top.get("data") or {}
+    if not d.get("geo_lat") or not d.get("geo_lon"):
+        return None
+    return {
+        "lat": float(d["geo_lat"]),
+        "lon": float(d["geo_lon"]),
+        "display_name": top.get("value", query),
+    }
+
+
+async def geocode_nominatim(address: str) -> dict | None:
     """
     Адрес → координаты через Nominatim (OSM). Бесплатно, без ключа.
     Возвращает {"lat", "lon", "display_name"} или None, если не найдено.
@@ -93,6 +148,22 @@ async def geocode(address: str) -> dict | None:
         "lon": float(top["lon"]),
         "display_name": top.get("display_name", query),
     }
+
+
+async def geocode(address: str) -> dict | None:
+    """
+    Адрес → координаты. Выбирает провайдер по GEO_PROVIDER, с фолбэком.
+    dadata (если задан токен) → nominatim; или наоборот при обратной настройке.
+    """
+    if GEO_PROVIDER == "dadata":
+        result = await geocode_dadata(address)
+        if result:
+            return result
+        return await geocode_nominatim(address)  # мягкий фолбэк
+    result = await geocode_nominatim(address)
+    if result:
+        return result
+    return await geocode_dadata(address)  # фолбэк, если токен всё же есть
 
 
 async def road_distance_km(lat: float, lon: float) -> tuple[float, str]:

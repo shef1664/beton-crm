@@ -22,6 +22,7 @@ from config import settings
 from services.amocrm import AmoCRMService
 from services.baserow import BaserowService
 from services.calculator import BetonCalculator
+from services import geo
 from services.duplicate_checker import DuplicateChecker
 from services.lead_utils import coerce_amount
 from services.notifier import TelegramNotifier
@@ -120,6 +121,12 @@ class CalculateRequest(BaseModel):
     concrete_grade: str
     volume: float
     distance: Optional[float] = 0
+
+
+class QuoteRequest(BaseModel):
+    concrete_grade: str = Field(..., description="Марка бетона, напр. М300")
+    volume: float = Field(..., gt=0, description="Объём в м³")
+    address: str = Field(..., min_length=3, description="Адрес доставки клиента")
 
 
 class ExternalLeadIngest(BaseModel):
@@ -615,6 +622,38 @@ async def calculate(calc_data: CalculateRequest):
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         logger.error("Ошибка расчета: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/quote")
+async def quote(req: QuoteRequest):
+    """
+    Котировка для клиентского бота: адрес → расстояние (бесплатный геокодинг)
+    → стоимость бетона + доставки. Если адрес не распознан — считаем без
+    доставки (distance=0) и просим уточнить адрес.
+    """
+    if req.concrete_grade not in settings.BETON_PRICES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Неизвестная марка. Доступны: {', '.join(settings.BETON_PRICES)}",
+        )
+    try:
+        geo_info = await geo.estimate_distance(req.address)
+        distance = geo_info["distance_km"] or 0
+        calc = calculator.calculate(req.concrete_grade, req.volume, distance)
+        return {
+            "status": "success",
+            "address_found": geo_info["found"],
+            "distance_km": geo_info["distance_km"],
+            "distance_method": geo_info["method"],
+            "deliverable": geo_info["deliverable"],
+            "matched_address": geo_info["matched_address"],
+            "calculation": calc,
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error("Ошибка котировки: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
 
 

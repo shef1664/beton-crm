@@ -1,0 +1,52 @@
+# Клиентский бот заказа бетона
+
+Telegram-бот для клиентов: вешается на **QR-код** / ссылку в рекламе.
+Клиент выбирает марку → объём → пишет адрес → получает стоимость с доставкой →
+оставляет телефон → заявка падает в CRM менеджеру.
+
+Отдельный от внутреннего `@otdprod_bot` (тот — для сотрудников).
+
+## Как работает
+
+```
+Клиент (QR/ссылка) → /start
+   → марка (кнопки М100…М450)
+   → объём (м³)
+   → адрес доставки (текст)
+        → backend POST /api/quote
+             (geo.py: адрес → км, бесплатный геокодинг Nominatim/DaData + OSRM)
+             (calculator.py: цена бетона + доставки)
+   → показ стоимости + возможности доставки
+   → телефон (кнопка «отправить контакт»)
+        → backend POST /api/leads/create → AmoCRM + Telegram-уведомление менеджеру
+```
+
+Вся логика цены и расстояния — на backend. Бот только ведёт диалог.
+
+## Запуск локально
+
+```bash
+cd client_bot
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env      # вписать CLIENT_BOT_TOKEN
+python bot.py
+```
+
+## Деплой на Render
+
+Отдельный worker-сервис:
+- Build: `pip install -r client_bot/requirements.txt`
+- Start: `cd client_bot && python bot.py`
+- Env: `CLIENT_BOT_TOKEN`, `BACKEND_URL` (+ по желанию `DADATA_TOKEN`, `PLANT_LAT/LON`)
+
+## Геокодинг (бесплатно)
+
+По умолчанию — **Nominatim (OSM) + OSRM**, без ключей. Если задать `DADATA_TOKEN`
+на backend — включится DaData (точнее по адресам РФ, 10k запросов/день бесплатно).
+Настройки: см. `backend/services/geo.py` и `.env.example`.
+
+## QR-код
+
+Ссылка вида `https://t.me/ВАШ_БОТ` → сгенерировать QR любым генератором и
+разместить на баннере/визитке/самосвале.
