@@ -7,7 +7,7 @@
     "lon": null
   },
   "districts": [
-    {"name": "Заводский р-н (завод)", "aliases": ["заводск", "дружбы"], "km": 2, "price_delivery": {"min": 6000, "max": 7000}},
+    {"name": "Заводский р-н (завод)", "aliases": ["заводск", "дружбы"], "km": 2, "price_delivery": {"min": 6000, "max": 6000}},
     {"name": "Центральный р-н", "aliases": ["центральн"], "km": 4, "price_delivery": {"min": 6000, "max": 6000}},
     {"name": "Пионер", "aliases": ["пионер"], "km": 5, "price_delivery": {"min": 6000, "max": 6000}},
     {"name": "Ленинский р-н / ФПК", "aliases": ["ленинск р", "фпк", "шалготарьян"], "km": 6, "price_delivery": {"min": 6000, "max": 6000}},
