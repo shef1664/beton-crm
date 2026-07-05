@@ -17,6 +17,7 @@
 import asyncio
 import logging
 import os
+import re
 from typing import Optional
 
 import httpx
@@ -222,11 +223,24 @@ async def relay_to_sales(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.error("relay to sales failed: %s", exc)
 
 
+def _client_id_from_reply(context, reply_to) -> Optional[int]:
+    """id клиента: сперва из карты (в памяти), иначе парсим из текста «(id 12345)».
+    Так ответ работает даже после рестарта и при смене id группы (супергруппа)."""
+    cid = _relay_map(context).get(reply_to.message_id)
+    if cid:
+        return cid
+    m = re.search(r"id\s+(\d+)", reply_to.text or reply_to.caption or "")
+    return int(m.group(1)) if m else None
+
+
 async def sales_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_to = update.message.reply_to_message
     if not reply_to:
         return
-    client_id = _relay_map(context).get(reply_to.message_id)
+    # отвечаем только на сообщения бота (карточки/реле), не на чужие
+    if not (reply_to.from_user and reply_to.from_user.id == context.bot.id):
+        return
+    client_id = _client_id_from_reply(context, reply_to)
     if not client_id:
         return
     text = (update.message.text or "").strip()
@@ -493,9 +507,10 @@ def create_bot() -> Optional[Application]:
     app.add_handler(order_conv)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(call_manager, pattern=r"^human$"))
-    if SALES_CHAT_ID:
-        app.add_handler(MessageHandler(
-            filters.Chat(SALES_CHAT_ID) & filters.REPLY & filters.TEXT, sales_reply))
+    # Ответ менеджера из группы: любой reply в группе на сообщение бота (не зависит
+    # от точного SALES_CHAT_ID — устойчиво к смене id при апгрейде в супергруппу).
+    app.add_handler(MessageHandler(
+        (~filters.ChatType.PRIVATE) & filters.REPLY & filters.TEXT, sales_reply))
     app.add_handler(MessageHandler(
         filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, consult))
 
