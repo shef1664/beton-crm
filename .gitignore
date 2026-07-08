@@ -54,3 +54,11 @@ backend/data/*
 !backend/data/sitemap-segodnya.xml
 !backend/data/landing_config.json
 !backend/data/delivery_zones.json
+
+# Счета: реквизиты организаций и печати — только в секретной папке (Render Secret Files),
+# НИКОГДА не в git. Логотип (backend/invoice_generator/assets/logo-pdf.png) не секрет.
+seller.*.json
+*-stamp-signature*.png
+invoice_secrets/
+backend/invoice_generator/_secrets/
+out/invoices/

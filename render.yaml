@@ -22,8 +22,16 @@ services:
       # AI-консультант (Claude). Ключ обязателен для работы нейросети в боте.
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Роутинг моделей по сложности запроса (по умолчанию включён).
+      # AI_MODEL задавать ТОЛЬКО чтобы форсить одну модель для всех (отключает роутинг).
       - key: AI_MODEL
+        value: ""
+      - key: AI_MODEL_COMPLEX   # сложное: подбор марки, расчёты, нюансы
+        value: "claude-fable-5"
+      - key: AI_MODEL_MEDIUM    # обычный диалог продажи
         value: "claude-opus-4-8"
+      - key: AI_MODEL_LIGHT     # приветствие/«да-нет»/спасибо
+        value: "claude-haiku-4-5-20251001"
       # Группа отдела продаж: добавьте @otdprod_bot в группу и укажите её chat_id.
       - key: SALES_CHAT_ID
         sync: false
@@ -34,9 +42,17 @@ services:
         sync: false
       - key: MAX_API_BASE
         value: "https://botapi.max.ru"
-      # Точный геокодинг района по улице (опционально). Есть в ~/.secrets/dadata.json.
+      # Точный геокодинг района по улице + поиск покупателя по ИНН для счетов.
       - key: DADATA_TOKEN
         sync: false
+      # Счета (команда /schet). Реквизиты организаций и печати — Render Secret Files
+      # в этой папке (seller.<key>.json, <key>-stamp-signature-pdf.png). НЕ в git.
+      - key: INVOICE_SECRETS_DIR
+        value: "/etc/secrets"
+      - key: DEFAULT_SELLER_KEY   # продавец по умолчанию
+        value: "sequoia"
+      - key: INVOICE_OUTPUT_DIR   # временные PDF (эфемерно; для персистентной нумерации — Disk)
+        value: "/tmp/beton-invoices"
       - key: AMOCRM_DOMAIN
         sync: false
       - key: AMOCRM_ACCESS_TOKEN

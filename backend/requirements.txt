@@ -6,3 +6,6 @@ python-telegram-bot>=20.7,<22
 pydantic>=2.11,<3
 requests>=2.31,<3
 anthropic>=0.40,<1
+# Генератор счетов (PDF + платёжный QR по ГОСТ)
+reportlab>=4.2,<5
+qrcode>=7.4,<8

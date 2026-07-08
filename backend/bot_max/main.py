@@ -45,11 +45,17 @@ def _sess(uid: int) -> dict:
 
 # ── MAX Bot API (тонкий слой; сверить форматы) ───────────────────────────────
 
+# MAX объявил, что токен в query-параметре устаревает — шлём и заголовок Authorization,
+# и query-параметр (совместимость). Если сервер игнорирует один — сработает другой.
+def _max_headers() -> dict:
+    return {"Authorization": MAX_BOT_TOKEN}
+
+
 async def _max_get_updates(client: httpx.AsyncClient, marker):
     params = {"access_token": MAX_BOT_TOKEN, "timeout": 30, "limit": 100}
     if marker is not None:
         params["marker"] = marker
-    r = await client.get(f"{MAX_API_BASE}/updates", params=params)
+    r = await client.get(f"{MAX_API_BASE}/updates", params=params, headers=_max_headers())
     r.raise_for_status()
     return r.json()
 
@@ -60,9 +66,11 @@ async def _max_send(client: httpx.AsyncClient, user_id: int, text: str, buttons=
     if buttons:
         body["attachments"] = [{"type": "inline_keyboard", "payload": {"buttons": buttons}}]
     try:
-        await client.post(f"{MAX_API_BASE}/messages",
-                          params={"access_token": MAX_BOT_TOKEN, "user_id": user_id},
-                          json=body)
+        r = await client.post(f"{MAX_API_BASE}/messages",
+                              params={"access_token": MAX_BOT_TOKEN, "user_id": user_id},
+                              json=body, headers=_max_headers())
+        if r.status_code >= 400:
+            logger.error("MAX send HTTP %s: %s", r.status_code, r.text[:300])
     except Exception as exc:
         logger.error("MAX send failed: %s", exc)
 
@@ -170,6 +178,9 @@ async def _consult(client, uid, text):
                   "address": order.get("address"), "delivery_date": order.get("delivery_date"),
                   "urgency": DATE_TO_URGENCY.get(order.get("delivery_date"), "normal"),
                   "payment_method": order.get("payment_method"), "state": PHONE})
+        # расчёт, собранный нейросетью по ходу диалога — чтобы сумма попала в заявку
+        if action.get("quote"):
+            s["quote"] = action["quote"]
         if reply:
             await _max_send(client, uid, reply)
         await _max_send(client, uid, "Оставьте номер — менеджер подтвердит заказ и время доставки 👇", _kb_phone())
@@ -268,6 +279,15 @@ async def _create_lead(client, uid, phone, name):
     except Exception as exc:
         logger.error("MAX lead create failed: %s", exc)
         txt = "✅ Данные приняты. Менеджер свяжется с вами вручную."
+    # Карточка в группу отдела продаж — через работающего TG-бота (тот же процесс)
+    try:
+        from bot.main import send_sales_card
+        order = {"grade": s.get("grade"), "volume": s.get("volume"), "address": s.get("address"),
+                 "delivery_date": s.get("delivery_date"), "payment_method": s.get("payment_method")}
+        await send_sales_card(order, q, name, phone,
+                              source="МАКС" + (" (просит менеджера)" if s.get("human") else ""))
+    except Exception as exc:
+        logger.error("MAX sales card failed: %s", exc)
     _sessions[uid] = {"state": IDLE, "ai_history": []}
     await _max_send(client, uid, txt)
 
