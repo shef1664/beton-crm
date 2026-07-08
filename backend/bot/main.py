@@ -15,6 +15,7 @@
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -49,6 +50,36 @@ _PORT = os.getenv("PORT", "8000")
 BACKEND_URL = f"http://127.0.0.1:{_PORT}"
 # Группа отдела продаж (добавьте @otdprod_bot в группу, укажите её chat_id).
 SALES_CHAT_ID = int(os.getenv("SALES_CHAT_ID", "0") or 0)
+# Бот сам запоминает id группы из сообщений в ней (устойчиво к апгрейду в супергруппу,
+# когда id меняется). Сохраняется в файл, чтобы пережить рестарт инстанса.
+_SALES_CHAT_STATE = Path(os.getenv("SALES_CHAT_STATE", "/tmp/beton-sales-chat.json"))
+_detected_sales_chat_id: Optional[int] = None
+
+
+def _load_detected_sales_chat() -> None:
+    global _detected_sales_chat_id
+    try:
+        if _SALES_CHAT_STATE.exists():
+            _detected_sales_chat_id = int(json.loads(_SALES_CHAT_STATE.read_text()).get("chat_id") or 0) or None
+    except Exception:  # noqa: BLE001
+        _detected_sales_chat_id = None
+
+
+def _save_detected_sales_chat(chat_id: int) -> None:
+    global _detected_sales_chat_id
+    _detected_sales_chat_id = chat_id
+    try:
+        _SALES_CHAT_STATE.write_text(json.dumps({"chat_id": chat_id}))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("save sales chat id failed: %s", exc)
+
+
+def effective_sales_chat() -> int:
+    """Актуальный id группы отдела продаж: авто-определённый приоритетнее env."""
+    return _detected_sales_chat_id or SALES_CHAT_ID
+
+
+_load_detected_sales_chat()
 
 GRADES = ["М100", "М150", "М200", "М250", "М300", "М350", "М400", "М450"]
 DATE_TO_URGENCY = {"Сегодня": "today", "Завтра": "normal", "На неделе": "normal", "Не срочно": "normal"}
@@ -110,7 +141,7 @@ async def send_sales_card(order: dict, quote: dict, name: str, phone: str,
     Используется и Telegram-, и МАКС-ботом (оба в одном backend-процессе), чтобы
     заявки из любого канала одинаково падали в группу отдела продаж.
     """
-    if not SALES_CHAT_ID or telegram_app is None:
+    if not effective_sales_chat() or telegram_app is None:
         return
     q = quote or {}
     order = order or {}
@@ -126,7 +157,7 @@ async def send_sales_card(order: dict, quote: dict, name: str, phone: str,
     if amount:
         rows.append(f"Сумма (ориент.): {_rub(amount)}")
     try:
-        await telegram_app.bot.send_message(SALES_CHAT_ID, "\n".join(rows), parse_mode="HTML")
+        await telegram_app.bot.send_message(effective_sales_chat(), "\n".join(rows), parse_mode="HTML")
     except Exception as exc:
         logger.error("sales card failed: %s", exc)
 
@@ -225,7 +256,7 @@ def _relay_map(context) -> dict:
 
 async def start_operator(update: Update, context: ContextTypes.DEFAULT_TYPE, reason: str = "") -> None:
     msg = update.effective_message
-    if not SALES_CHAT_ID:
+    if not effective_sales_chat():
         await msg.reply_text(
             "Передаю менеджеру — он свяжется с вами. Можете оставить заявку кнопкой ниже.",
             reply_markup=client_keyboard(),
@@ -246,7 +277,7 @@ async def start_operator(update: Update, context: ContextTypes.DEFAULT_TYPE, rea
         header += f"\n\nПоследние сообщения:\n{tail}"
     header += "\n\nОтветьте reply на это сообщение, чтобы написать клиенту. «/end» — завершить."
     try:
-        sent = await context.bot.send_message(SALES_CHAT_ID, header)
+        sent = await context.bot.send_message(effective_sales_chat(), header)
         _relay_map(context)[sent.message_id] = user.id
     except Exception as exc:
         logger.error("sales notify failed: %s", exc)
@@ -266,7 +297,7 @@ async def relay_to_sales(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user = update.effective_user
     text = update.message.text
     try:
-        sent = await context.bot.send_message(SALES_CHAT_ID, f"💬 {user.first_name} (id {user.id}): {text}")
+        sent = await context.bot.send_message(effective_sales_chat(), f"💬 {user.first_name} (id {user.id}): {text}")
         _relay_map(context)[sent.message_id] = user.id
     except Exception as exc:
         logger.error("relay to sales failed: %s", exc)
@@ -306,6 +337,24 @@ async def sales_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await context.bot.send_message(client_id, f"👨‍💼 Менеджер: {text}")
     except Exception as exc:
         logger.error("sales_reply deliver failed: %s", exc)
+
+
+async def remember_sales_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Запомнить id группы отдела продаж из любого сообщения в ней.
+
+    Делает доставку карточек устойчивой к апгрейду группы в супергруппу (id меняется)
+    и к незаданному/устаревшему SALES_CHAT_ID: как только в группе появляется сообщение,
+    бот берёт актуальный id.
+    """
+    msg = update.effective_message
+    chat = update.effective_chat
+    if msg is not None and getattr(msg, "migrate_to_chat_id", None):
+        _save_detected_sales_chat(msg.migrate_to_chat_id)
+        logger.info("sales chat migrated to supergroup: %s", msg.migrate_to_chat_id)
+        return
+    if chat is not None and chat.type in ("group", "supergroup") and chat.id != effective_sales_chat():
+        _save_detected_sales_chat(chat.id)
+        logger.info("sales chat id detected: %s", chat.id)
 
 
 # ── Оформление заказа ────────────────────────────────────────────────────────
@@ -485,7 +534,7 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         logger.error("lead create failed: %s", exc)
         text = "✅ Данные приняты. Менеджер свяжется с вами вручную."
 
-    if SALES_CHAT_ID:
+    if effective_sales_chat():
         rows = [
             "🧱 <b>Новая заявка из бота</b>",
             f"Имя: {name}",
@@ -504,7 +553,7 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         if amount:
             rows.append(f"Сумма (ориент.): {_rub(amount)}")
         try:
-            await context.bot.send_message(SALES_CHAT_ID, "\n".join(rows), parse_mode="HTML")
+            await context.bot.send_message(effective_sales_chat(), "\n".join(rows), parse_mode="HTML")
         except Exception as exc:
             logger.error("sales card failed: %s", exc)
 
@@ -648,11 +697,11 @@ async def handle_invoice_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         logger.error("invoice send failed: %s", exc)
         await update.message.reply_text("Счёт создан, но не отправился. Попробуйте ещё раз.")
         return
-    if SALES_CHAT_ID:  # копия в отдел продаж
+    if effective_sales_chat():  # копия в отдел продаж
         try:
             with pdf_path.open("rb") as doc:
                 await context.bot.send_document(
-                    SALES_CHAT_ID, document=doc, filename=pdf_path.name,
+                    effective_sales_chat(), document=doc, filename=pdf_path.name,
                     caption=f"🧾 {caption}\nПокупатель: {parsed.buyer.name} (ИНН {parsed.buyer.inn})")
         except Exception as exc:  # noqa: BLE001
             logger.error("invoice sales copy failed: %s", exc)
@@ -699,6 +748,10 @@ def create_bot() -> Optional[Application]:
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.CONTACT, ai_contact))
     app.add_handler(MessageHandler(
         filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, consult))
+    # Отдельная группа хендлеров: запомнить id группы отдела продаж (в т.ч. миграцию
+    # в супергруппу). group=1 — выполняется независимо от остальных обработчиков.
+    app.add_handler(MessageHandler(~filters.ChatType.PRIVATE, remember_sales_chat), group=1)
+    app.add_handler(MessageHandler(filters.StatusUpdate.MIGRATE, remember_sales_chat), group=1)
 
     return app
 
