@@ -103,6 +103,34 @@ def _range(a, b) -> str:
     return _rub(a) if a == b else f"{_rub(a)}–{_rub(b)}"
 
 
+async def send_sales_card(order: dict, quote: dict, name: str, phone: str,
+                          source: str = "бота (AI)") -> None:
+    """Карточка заявки в группу отдела продаж через работающего TG-бота.
+
+    Используется и Telegram-, и МАКС-ботом (оба в одном backend-процессе), чтобы
+    заявки из любого канала одинаково падали в группу отдела продаж.
+    """
+    if not SALES_CHAT_ID or telegram_app is None:
+        return
+    q = quote or {}
+    order = order or {}
+    amount = q.get("total_max") or q.get("total_min") or q.get("beton_cost")
+    rows = [f"🧱 <b>Новая заявка из {source}</b>", f"Имя: {name}", f"Телефон: {phone}",
+            f"Марка: {order.get('grade') or '—'}", f"Объём: {order.get('volume') or '—'} м³",
+            f"Адрес: {order.get('address') or '—'}", f"Когда: {order.get('delivery_date') or '—'}",
+            f"Оплата: {order.get('payment_method') or '—'}", f"Зона: {q.get('zone') or '—'}"]
+    if q.get("needs_manager"):
+        rows.append("Доставка: ⚠️ уточнить у клиента (вне тарифных зон)")
+    elif q.get("delivery_min") is not None:
+        rows.append(f"Доставка: {_range(q['delivery_min'], q['delivery_max'])}")
+    if amount:
+        rows.append(f"Сумма (ориент.): {_rub(amount)}")
+    try:
+        await telegram_app.bot.send_message(SALES_CHAT_ID, "\n".join(rows), parse_mode="HTML")
+    except Exception as exc:
+        logger.error("sales card failed: %s", exc)
+
+
 # ── Приветствие и консультация (AI) ──────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -544,21 +572,7 @@ async def create_ai_lead(update: Update, context: ContextTypes.DEFAULT_TYPE, pho
         logger.error("ai lead create failed: %s", exc)
         txt = "✅ Данные приняты. Менеджер свяжется с вами вручную."
 
-    if SALES_CHAT_ID:
-        rows = ["🧱 <b>Новая заявка из бота (AI)</b>", f"Имя: {name}", f"Телефон: {phone}",
-                f"Марка: {order.get('grade') or '—'}", f"Объём: {order.get('volume') or '—'} м³",
-                f"Адрес: {order.get('address') or '—'}", f"Когда: {order.get('delivery_date') or '—'}",
-                f"Оплата: {order.get('payment_method') or '—'}", f"Зона: {q.get('zone') or '—'}"]
-        if q.get("needs_manager"):
-            rows.append("Доставка: ⚠️ уточнить у клиента (вне тарифных зон)")
-        elif q.get("delivery_min") is not None:
-            rows.append(f"Доставка: {_range(q['delivery_min'], q['delivery_max'])}")
-        if amount:
-            rows.append(f"Сумма (ориент.): {_rub(amount)}")
-        try:
-            await context.bot.send_message(SALES_CHAT_ID, "\n".join(rows), parse_mode="HTML")
-        except Exception as exc:
-            logger.error("sales card (ai) failed: %s", exc)
+    await send_sales_card(order, q, name, phone, source="бота (AI)")
 
     context.user_data.pop("ai_order", None)
     context.user_data.pop("ai_quote", None)
