@@ -1,6 +1,9 @@
 """Telegram notifications for leads and system events."""
 
+import json
 import logging
+import os
+from pathlib import Path
 
 import httpx
 
@@ -8,6 +11,9 @@ from config import settings
 from services.lead_utils import coerce_amount
 
 logger = logging.getLogger(__name__)
+
+# Тот же файл, куда клиентский бот сохраняет авто-определённый id группы отдела продаж.
+_SALES_CHAT_STATE = Path(os.getenv("SALES_CHAT_STATE", "/tmp/beton-sales-chat.json"))
 
 
 class TelegramNotifier:
@@ -19,24 +25,65 @@ class TelegramNotifier:
     def is_available(self) -> bool:
         return self.is_configured
 
+    def _sales_chat_id(self) -> int:
+        """Id группы отдела продаж: env SALES_CHAT_ID или авто-определённый ботом."""
+        env_id = int(os.getenv("SALES_CHAT_ID", "0") or 0)
+        if env_id:
+            return env_id
+        try:
+            if _SALES_CHAT_STATE.exists():
+                return int(json.loads(_SALES_CHAT_STATE.read_text()).get("chat_id") or 0)
+        except Exception:  # noqa: BLE001
+            pass
+        return 0
+
+    async def _post(self, chat_id: int, text: str):
+        url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
+                r.raise_for_status()
+        except Exception as exc:
+            logger.error("Telegram send to %s failed: %s", chat_id, exc)
+
     async def _send_message(self, text: str):
         if not self.is_configured:
             logger.warning("Telegram is not configured: %s", text)
             return
+        await self._post(self.admin_id, text)
 
-        url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-        payload = {
-            "chat_id": self.admin_id,
-            "text": text,
-            "parse_mode": "HTML",
-        }
+    async def notify_sales_group(self, lead_data: dict, lead_id: int):
+        """Карточка заявки в группу отдела продаж (для не-Telegram источников — напр. МАКС).
 
-        try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                response = await client.post(url, json=payload)
-                response.raise_for_status()
-        except Exception as exc:
-            logger.error("Telegram notification failed: %s", exc)
+        Telegram-бот шлёт свою карточку сам, поэтому для source=telegram здесь пропускаем,
+        чтобы не было дублей. Идёт по прямому каналу (api.telegram.org) — надёжно и не
+        зависит от опроса бота.
+        """
+        if not self.bot_token:
+            return
+        source = str(lead_data.get("source") or "").lower()
+        if source == "telegram":
+            return
+        chat_id = self._sales_chat_id()
+        if not chat_id:
+            logger.warning("SALES_CHAT_ID неизвестен — карточка в группу не отправлена (source=%s)", source)
+            return
+        amount = coerce_amount(lead_data.get("calculated_amount")) or 0
+        src_label = {"max": "МАКС"}.get(source, source or "сайт/бот")
+        rows = [
+            f"🧱 <b>Новая заявка из {src_label}</b>",
+            f"Имя: {self._clean_value(lead_data.get('name'))}",
+            f"Телефон: {self._clean_value(lead_data.get('phone'))}",
+            f"Марка: {self._clean_value(lead_data.get('concrete_grade'))}",
+            f"Объём: {self._clean_value(lead_data.get('volume'))} м³",
+            f"Адрес: {self._clean_value(lead_data.get('address'))}",
+            f"Когда: {self._clean_value(lead_data.get('delivery_date'))}",
+            f"Оплата: {self._clean_value(lead_data.get('payment_method'))}",
+        ]
+        if amount:
+            rows.append(f"Сумма (ориент.): {amount:,.0f} ₽".replace(",", " "))
+        rows.append(f"ID: {lead_id}")
+        await self._post(chat_id, "\n".join(rows))
 
     @staticmethod
     def _clean_value(value, default: str = "не указано") -> str:
@@ -75,6 +122,8 @@ class TelegramNotifier:
             f"ID: {lead_id}"
         )
         await self._send_message(text)
+        # Карточка в группу отдела продаж (для не-Telegram источников, напр. МАКС)
+        await self.notify_sales_group(lead_data, lead_id)
 
     async def notify_hot_lead(self, lead_id: int):
         text = (
