@@ -279,15 +279,8 @@ async def _create_lead(client, uid, phone, name):
     except Exception as exc:
         logger.error("MAX lead create failed: %s", exc)
         txt = "✅ Данные приняты. Менеджер свяжется с вами вручную."
-    # Карточка в группу отдела продаж — через работающего TG-бота (тот же процесс)
-    try:
-        from bot.main import send_sales_card
-        order = {"grade": s.get("grade"), "volume": s.get("volume"), "address": s.get("address"),
-                 "delivery_date": s.get("delivery_date"), "payment_method": s.get("payment_method")}
-        await send_sales_card(order, q, name, phone,
-                              source="МАКС" + (" (просит менеджера)" if s.get("human") else ""))
-    except Exception as exc:
-        logger.error("MAX sales card failed: %s", exc)
+    # Карточку в группу отдела продаж шлёт backend-уведомитель (notify_sales_group)
+    # по прямому каналу api.telegram.org — надёжно и без дублей с TG-ботом.
     _sessions[uid] = {"state": IDLE, "ai_history": []}
     await _max_send(client, uid, txt)
 
