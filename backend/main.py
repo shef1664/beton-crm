@@ -65,6 +65,14 @@ duplicate_checker = DuplicateChecker(amocrm, baserow)
 sales_automation = SalesAutomationService()
 
 
+def _allows_repeat_orders(lead_data: "LeadCreate") -> bool:
+    """Sources where the same phone can create multiple independent orders."""
+    return any(
+        (value or "").strip().lower() == "max"
+        for value in (lead_data.source, lead_data.source_platform)
+    )
+
+
 class LeadCreate(BaseModel):
     name: str = Field(..., description="Имя клиента")
     phone: str = Field(..., description="Телефон")
@@ -521,7 +529,7 @@ async def create_lead(lead_data: LeadCreate, request: Request):
         logger.info("Новый лид: %s, %s (ip=%s)", lead_data.name, lead_data.phone, client_ip)
 
         duplicate_id = await duplicate_checker.check(lead_data.phone)
-        if duplicate_id:
+        if duplicate_id and not _allows_repeat_orders(lead_data):
             logger.warning("Дубль найден: %s", lead_data.phone)
             await baserow.log_error(
                 "duplicate_lead",
@@ -539,6 +547,14 @@ async def create_lead(lead_data: LeadCreate, request: Request):
                 "message": "Вы уже оставляли заявку. Мы свяжемся с вами!",
                 "existing_lead_id": duplicate_id,
             }
+        if duplicate_id:
+            logger.info(
+                "Повторная заявка разрешена для source=%s source_platform=%s phone=%s existing_lead_id=%s",
+                lead_data.source,
+                lead_data.source_platform,
+                lead_data.phone,
+                duplicate_id,
+            )
 
         lead_data.calculated_amount = coerce_amount(lead_data.calculated_amount)
         if lead_data.calculated_amount is None and lead_data.concrete_grade and lead_data.volume:
