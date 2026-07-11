@@ -28,6 +28,11 @@ def is_configured() -> bool:
     return bool(os.getenv("SALUTE_AUTH_KEY") or os.getenv("SALUTE_TOKEN"))
 
 
+def voice_input_enabled() -> bool:
+    """Allow downloading customer audio only in the approved hosting region."""
+    return os.getenv("VOICE_INPUT_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+
 async def _access_token(*, force_refresh: bool = False) -> str:
     global _token, _token_expires_at
     async with _token_lock:

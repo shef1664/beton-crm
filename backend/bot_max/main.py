@@ -22,7 +22,7 @@ import re
 
 import httpx
 
-from services.speech_to_text import TranscriptionError, transcribe_ogg
+from services.speech_to_text import TranscriptionError, transcribe_ogg, voice_input_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -440,6 +440,12 @@ async def _handle_message(client, update):
 
     audio = _extract_audio(message)
     if audio:
+        if not voice_input_enabled():
+            await _max_send(
+                client, uid,
+                "Голосовые временно недоступны. Напишите сообщение текстом — я сразу помогу.",
+            )
+            return
         if s["state"] == PHONE:
             await _max_send(
                 client, uid,

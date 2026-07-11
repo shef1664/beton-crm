@@ -45,7 +45,7 @@ from telegram.ext import (
 )
 
 from config import settings
-from services.speech_to_text import TranscriptionError, transcribe_ogg
+from services.speech_to_text import TranscriptionError, transcribe_ogg, voice_input_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -317,6 +317,11 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Recognize a short Telegram voice message and process it as normal text."""
+    if not voice_input_enabled():
+        await update.message.reply_text(
+            "Голосовые временно недоступны. Напишите сообщение текстом — я сразу помогу."
+        )
+        return
     if context.user_data.get("manual_phone_required"):
         await update.message.reply_text(
             "Номер телефона нужно ввести цифрами вручную, например: 8 923 123-45-67."
