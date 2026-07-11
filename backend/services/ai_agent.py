@@ -61,6 +61,25 @@ _LIGHT_MARKERS = (
     "давай", "ясно", "угу", "ок.", "спс",
 )
 
+_HANDOFF_REPLY_MARKERS = (
+    "не могу помочь",
+    "не смогу помочь",
+    "не помогу",
+    "не знаю",
+    "не уверен",
+    "не уверена",
+    "не моя тема",
+    "только по бетону",
+    "уточнит менеджер",
+    "уточнить у менеджера",
+)
+
+
+def _reply_requires_handoff(reply: str) -> bool:
+    """Страховка: отказ или неуверенность AI всегда передаются менеджеру."""
+    normalized = (reply or "").strip().lower()
+    return any(marker in normalized for marker in _HANDOFF_REPLY_MARKERS)
+
 
 def _pick_model(messages: list) -> str:
     """Выбрать модель по сложности последней реплики клиента."""
@@ -379,7 +398,13 @@ async def _chat_claude(history: list) -> dict:
             continue
         # финальный ответ
         text = "".join(b.text for b in resp.content if b.type == "text").strip()
-        return {"reply": text or None, "action": state["action"]}
+        action = state["action"]
+        if not action and _reply_requires_handoff(text):
+            action = {
+                "type": "call_human",
+                "reason": "Нейросеть не смогла уверенно ответить клиенту",
+            }
+        return {"reply": text or None, "action": action}
 
     return {"reply": "Давайте оформим заявку — так менеджер быстро всё посчитает.",
             "action": state["action"] or {"type": "start_order"}}

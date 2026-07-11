@@ -76,3 +76,5 @@ def test_ai_script_hands_unknown_questions_to_manager():
 
     assert "СРАЗУ вызови call_human" in ai_agent.SYSTEM_PROMPT
     assert "Не пытайся угадывать" in ai_agent.SYSTEM_PROMPT
+    assert ai_agent._reply_requires_handoff("Извините, я по этой теме не могу помочь")
+    assert not ai_agent._reply_requires_handoff("Для фундамента обычно подходит М300")
