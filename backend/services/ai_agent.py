@@ -27,6 +27,7 @@ import json
 import logging
 import math
 import os
+import asyncio
 from pathlib import Path
 
 from config import settings
@@ -411,9 +412,92 @@ async def _chat_claude(history: list) -> dict:
 
 
 async def _chat_gigachat(history: list) -> dict:
-    """Заглушка под GigaChat/Сбер (подключим позже через env AI_PROVIDER=gigachat)."""
-    logger.warning("GigaChat провайдер ещё не реализован")
+    """Russian-only agent loop through the official GigaChat SDK."""
+    credentials = os.getenv("GIGACHAT_TOKEN") or os.getenv("GIGACHAT_CREDENTIALS")
+    if not credentials:
+        logger.warning("GIGACHAT_TOKEN не задан — AI недоступен")
+        return {"reply": None, "action": {"type": "fallback"}}
+
+    protocol = (
+        SYSTEM_PROMPT
+        + "\n\nФОРМАТ ОТВЕТА: верни только JSON без markdown: "
+          '{"reply":"короткий ответ клиенту или null","tool":null} либо '
+          '{"reply":null,"tool":{"name":"имя_инструмента","arguments":{}}}. '
+          "За один ответ вызывай не более одного инструмента. Доступные инструменты:\n"
+        + json.dumps(TOOLS, ensure_ascii=False)
+    )
+    messages = [{"role": m["role"], "content": m["content"]} for m in history[-AI_MAX_HISTORY:]]
+    state = {"action": None}
+
+    for _ in range(6):
+        raw = await asyncio.to_thread(_gigachat_complete, credentials, protocol, messages)
+        data = _extract_json_object(raw)
+        tool = data.get("tool") if isinstance(data, dict) else None
+        if isinstance(tool, dict) and tool.get("name"):
+            name = str(tool["name"])
+            arguments = tool.get("arguments") if isinstance(tool.get("arguments"), dict) else {}
+            result = _run_tool(name, arguments, state)
+            action = state.get("action")
+            if action:
+                reply = ("Хорошо, подключаю менеджера."
+                         if action.get("type") == "call_human"
+                         else "Отлично, осталось указать номер телефона.")
+                return {"reply": reply, "action": action}
+            messages.extend([
+                {"role": "assistant", "content": raw},
+                {"role": "user", "content": f"Результат инструмента {name}: {result}"},
+            ])
+            continue
+
+        reply = str(data.get("reply") or "").strip() if isinstance(data, dict) else ""
+        if not reply:
+            logger.warning("GigaChat returned an invalid agent response")
+            return {"reply": None, "action": {"type": "fallback"}}
+        action = state.get("action")
+        if not action and _reply_requires_handoff(reply):
+            action = {"type": "call_human", "reason": "Нейросеть не смогла уверенно ответить клиенту"}
+        return {"reply": reply, "action": action}
+
     return {"reply": None, "action": {"type": "fallback"}}
+
+
+def _extract_json_object(text: str) -> dict:
+    """Extract the first valid JSON object from a model response."""
+    decoder = json.JSONDecoder()
+    start = (text or "").find("{")
+    while start >= 0:
+        try:
+            value, _ = decoder.raw_decode(text, start)
+            if isinstance(value, dict):
+                return value
+        except ValueError:
+            pass
+        start = text.find("{", start + 1)
+    return {}
+
+
+def _gigachat_complete(credentials: str, system: str, messages: list) -> str:
+    """Blocking SDK call, executed by _chat_gigachat in a worker thread."""
+    from gigachat import GigaChat
+    from gigachat.models import Chat, Messages, MessagesRole
+
+    role_map = {
+        "user": MessagesRole.USER,
+        "assistant": MessagesRole.ASSISTANT,
+    }
+    payload_messages = [Messages(role=MessagesRole.SYSTEM, content=system)]
+    payload_messages.extend(
+        Messages(role=role_map.get(message["role"], MessagesRole.USER), content=message["content"])
+        for message in messages
+    )
+    with GigaChat(
+        credentials=credentials,
+        scope=os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS"),
+        model=os.getenv("GIGACHAT_MODEL", "GigaChat"),
+        verify_ssl_certs=True,
+    ) as client:
+        response = client.chat(Chat(messages=payload_messages, temperature=0.1, max_tokens=1000))
+    return response.choices[0].message.content
 
 
 async def chat(history: list) -> dict:
