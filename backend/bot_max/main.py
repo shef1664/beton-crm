@@ -13,12 +13,16 @@ Env: MAX_BOT_TOKEN (обязателен), MAX_API_BASE (по умолчанию
 RUN_MAX_BOT=true чтобы включить опрос.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
 import re
 
 import httpx
+
+from services.speech_to_text import TranscriptionError, transcribe_ogg
 
 logger = logging.getLogger(__name__)
 
@@ -401,6 +405,28 @@ def _extract_phone(message: dict):
     return None
 
 
+def _extract_audio(message: dict) -> dict | None:
+    """Return a MAX audio attachment, including its built-in transcription."""
+    attachments = (message.get("body", {}).get("attachments") or
+                   message.get("attachments") or [])
+    for attachment in attachments:
+        if attachment.get("type") == "audio":
+            return attachment
+    return None
+
+
+async def _voice_text(client: httpx.AsyncClient, attachment: dict) -> str:
+    transcription = str(attachment.get("transcription") or "").strip()
+    if transcription:
+        return transcription
+    url = (attachment.get("payload") or {}).get("url")
+    if not url:
+        raise TranscriptionError("MAX audio has no download URL")
+    response = await client.get(url, timeout=30)
+    response.raise_for_status()
+    return await transcribe_ogg(response.content)
+
+
 async def _handle_message(client, update):
     message = update.get("message") or {}
     sender = message.get("sender") or {}
@@ -411,6 +437,26 @@ async def _handle_message(client, update):
     text = (message.get("body") or {}).get("text") or ""
     s = _sess(uid)
     s["name"] = name
+
+    audio = _extract_audio(message)
+    if audio:
+        if s["state"] == PHONE:
+            await _max_send(
+                client, uid,
+                "Номер телефона нужно ввести цифрами вручную, например: 8 923 123-45-67.",
+            )
+            return
+        await _max_send(client, uid, "🎤 Распознаю голос…")
+        try:
+            text = await _voice_text(client, audio)
+        except (TranscriptionError, httpx.HTTPError) as exc:
+            logger.warning("MAX voice transcription failed: %s", exc)
+            await _max_send(
+                client, uid,
+                "Не получилось разобрать голосовое. Напишите сообщение текстом или выберите «Написать менеджеру».",
+            )
+            return
+        await _max_send(client, uid, f"🎤 Я услышал: «{text}»")
 
     command = text.strip().lower()
     if command in ("/start", "start", "старт", "начать", "начать заново"):

@@ -81,3 +81,33 @@ def test_sales_reply_detects_max_client_target():
     context = SimpleNamespace(bot_data={"relay": {}})
 
     assert bot_main._client_target_from_reply(context, reply_to) == ("max", 4205271841)
+
+
+def test_voice_message_is_transcribed_and_sent_to_normal_chat(monkeypatch):
+    tg_file = SimpleNamespace(download_as_bytearray=AsyncMock(return_value=bytearray(b"ogg")))
+    message = SimpleNamespace(
+        voice=SimpleNamespace(get_file=AsyncMock(return_value=tg_file)),
+        reply_text=AsyncMock(),
+    )
+    update = SimpleNamespace(message=message, effective_user=SimpleNamespace(id=42))
+    context = SimpleNamespace(user_data={}, bot_data={})
+    transcribe = AsyncMock(return_value="нужно пять кубов м300")
+    consult_text = AsyncMock()
+    monkeypatch.setattr(bot_main, "transcribe_ogg", transcribe)
+    monkeypatch.setattr(bot_main, "consult_text", consult_text)
+
+    asyncio.run(bot_main.voice_message(update, context))
+
+    transcribe.assert_awaited_once_with(b"ogg")
+    assert message.reply_text.await_args_list[1].args[0] == "🎤 Я услышал: «нужно пять кубов м300»"
+    consult_text.assert_awaited_once_with(update, context, "нужно пять кубов м300")
+
+
+def test_voice_cannot_replace_manual_phone_input():
+    message = SimpleNamespace(reply_text=AsyncMock())
+    update = SimpleNamespace(message=message)
+    context = SimpleNamespace(user_data={"manual_phone_required": True})
+
+    asyncio.run(bot_main.voice_message(update, context))
+
+    assert "ввести цифрами вручную" in message.reply_text.await_args.args[0]

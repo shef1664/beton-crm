@@ -14,6 +14,8 @@
 Персональные данные (телефон, адрес) в нейросеть не передаются.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -31,6 +33,7 @@ from telegram import (
     ReplyKeyboardRemove,
     Update,
 )
+from telegram.error import TelegramError
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -42,6 +45,7 @@ from telegram.ext import (
 )
 
 from config import settings
+from services.speech_to_text import TranscriptionError, transcribe_ogg
 
 logger = logging.getLogger(__name__)
 
@@ -231,17 +235,20 @@ async def ai_chat_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return ConversationHandler.END
 
 
-async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def consult_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
     if update.effective_user.id in _operators(context):
-        await relay_to_sales(update, context)
+        await relay_to_sales(update, context, text=text)
         return
 
     # Режим счёта: текст уходит в генератор счёта, а не в AI-консультанта
     if context.user_data.get("invoice_mode"):
+        if update.message.text is None:
+            await update.message.reply_text("Реквизиты для счёта пока отправьте текстом.")
+            return
         await handle_invoice_text(update, context)
         return
 
-    text = update.message.text.strip()
+    text = text.strip()
     # Клиент печатает телефон текстом, когда бот его ждёт (AI-заказ)
     manual_phone = _manual_phone(text)
     if context.user_data.get("ai_order") and manual_phone:
@@ -278,6 +285,7 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if action.get("type") == "request_phone":
         context.user_data["ai_order"] = action.get("order") or {}
         context.user_data["ai_quote"] = action.get("quote")
+        context.user_data["manual_phone_required"] = True
         if reply:
             await update.message.reply_text(reply)
         await update.message.reply_text(
@@ -301,6 +309,34 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     await update.message.reply_text(reply)
+
+
+async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await consult_text(update, context, update.message.text or "")
+
+
+async def voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Recognize a short Telegram voice message and process it as normal text."""
+    if context.user_data.get("manual_phone_required"):
+        await update.message.reply_text(
+            "Номер телефона нужно ввести цифрами вручную, например: 8 923 123-45-67."
+        )
+        return
+
+    await update.message.reply_text("🎤 Распознаю голос…")
+    try:
+        tg_file = await update.message.voice.get_file()
+        audio = bytes(await tg_file.download_as_bytearray())
+        text = await transcribe_ogg(audio)
+    except (TranscriptionError, httpx.HTTPError, TelegramError) as exc:
+        logger.warning("voice transcription failed: %s", exc)
+        await update.message.reply_text(
+            "Не получилось разобрать голосовое. Напишите сообщение текстом или нажмите «Написать менеджеру»."
+        )
+        return
+
+    await update.message.reply_text(f"🎤 Я услышал: «{text}»")
+    await consult_text(update, context, text)
 
 
 # ── Живая передача менеджеру (режим оператора) ───────────────────────────────
@@ -362,9 +398,11 @@ async def call_manager_from_order(update: Update, context: ContextTypes.DEFAULT_
     return ConversationHandler.END
 
 
-async def relay_to_sales(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def relay_to_sales(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, text: str | None = None
+) -> None:
     user = update.effective_user
-    text = update.message.text
+    text = text if text is not None else update.message.text
     try:
         sent = await context.bot.send_message(effective_sales_chat(), f"💬 {user.first_name} (id {user.id}): {text}")
         _relay_map(context)[sent.message_id] = user.id
@@ -555,6 +593,7 @@ async def enter_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def enter_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["payment_method"] = update.message.text.strip()
+    context.user_data["manual_phone_required"] = True
     await update.message.reply_text(
         "Введите номер телефона цифрами вручную, например: 8 923 123-45-67. "
         "Автоматическая отправка контакта отключена.",
@@ -601,6 +640,7 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         await update.message.reply_text("Похоже, номер неполный. Введите его цифрами вручную.")
         return PHONE
 
+    context.user_data.pop("manual_phone_required", None)
     ud = context.user_data
     quote = ud.get("quote") or {}
     amount = quote.get("total_max") or quote.get("total_min") or quote.get("beton_cost")
@@ -870,6 +910,7 @@ def create_bot() -> Optional[Application]:
         (~filters.ChatType.PRIVATE) & filters.REPLY & filters.TEXT, sales_reply))
     # AI-заказ: контакт (телефон) в личке вне оформления → создать лид
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.CONTACT, ai_contact))
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.VOICE, voice_message))
     app.add_handler(MessageHandler(
         filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, consult))
     # Отдельная группа хендлеров: запомнить id группы отдела продаж (в т.ч. миграцию
