@@ -1,0 +1,78 @@
+"""MAX bot restart, contact, and manual-phone behavior."""
+
+from __future__ import annotations
+
+import asyncio
+from unittest.mock import AsyncMock
+
+from bot_max import main as max_bot
+
+
+def test_max_main_menu_exposes_all_client_actions():
+    actions = {button["payload"]: button["text"] for row in max_bot._kb_main() for button in row}
+
+    assert actions == {
+        "restart": "🔄 Начать заново",
+        "order": "🧱 Оформить новый заказ",
+        "ai_chat": "🤖 Спросить нейросеть",
+        "human": "💬 Написать менеджеру",
+        "contacts": "📞 Позвонить / контакты",
+    }
+
+
+def test_max_phone_is_accepted_only_from_manual_text():
+    assert max_bot._manual_phone("8 923 123-45-67") == "89231234567"
+    assert max_bot._manual_phone("нет телефона") is None
+
+
+def test_max_start_command_wins_while_bot_waits_for_phone(monkeypatch):
+    uid = 101
+    max_bot._sessions[uid] = {"state": max_bot.PHONE, "ai_history": []}
+    greet = AsyncMock()
+    create_lead = AsyncMock()
+    monkeypatch.setattr(max_bot, "_greet", greet)
+    monkeypatch.setattr(max_bot, "_create_lead", create_lead)
+    client = object()
+
+    update = {
+        "message": {
+            "sender": {"user_id": uid, "name": "Клиент"},
+            "body": {"text": "/start"},
+        }
+    }
+    asyncio.run(max_bot._handle_message(client, update))
+
+    greet.assert_awaited_once_with(client, uid)
+    create_lead.assert_not_awaited()
+
+
+def test_max_contact_attachment_is_rejected_in_phone_step(monkeypatch):
+    uid = 102
+    max_bot._sessions[uid] = {"state": max_bot.PHONE, "ai_history": []}
+    send = AsyncMock()
+    create_lead = AsyncMock()
+    monkeypatch.setattr(max_bot, "_max_send", send)
+    monkeypatch.setattr(max_bot, "_create_lead", create_lead)
+
+    update = {
+        "message": {
+            "sender": {"user_id": uid, "name": "Клиент"},
+            "body": {
+                "text": "",
+                "attachments": [
+                    {"type": "contact", "payload": {"phone": "+79030000000"}}
+                ],
+            },
+        }
+    }
+    asyncio.run(max_bot._handle_message(object(), update))
+
+    create_lead.assert_not_awaited()
+    assert "Контакт не принимаю" in send.await_args.args[2]
+
+
+def test_ai_script_hands_unknown_questions_to_manager():
+    from services import ai_agent
+
+    assert "СРАЗУ вызови call_human" in ai_agent.SYSTEM_PROMPT
+    assert "Не пытайся угадывать" in ai_agent.SYSTEM_PROMPT

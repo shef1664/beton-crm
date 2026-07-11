@@ -8,7 +8,7 @@
 Гибрид:
   • Консультация (свободный чат) → POST /api/ai/chat (Claude, tool-use).
   • Оформление заказа (кнопки): марка → объём → адрес → /api/quote (зоны доставки)
-    → дата → оплата → телефон(кнопка) → /webhooks/telegram → CRM.
+    → дата → оплата → телефон вручную → /webhooks/telegram → CRM.
   • Отдел продаж: карточка заявки в группу + живая передача менеджеру (оператор).
 
 Персональные данные (телефон, адрес) в нейросеть не передаются.
@@ -27,7 +27,6 @@ from telegram import (
     BotCommand,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
@@ -86,6 +85,8 @@ GRADES = ["М100", "М150", "М200", "М250", "М300", "М350", "М400", "М450"
 DATE_TO_URGENCY = {"Сегодня": "today", "Завтра": "normal", "На неделе": "normal", "Не срочно": "normal"}
 VOLUME, ADDRESS, DATE, PAYMENT, PHONE = range(5)
 AI_HISTORY_MAX = 20
+SALES_PHONE = "+73842635555"
+SALES_PHONE_DISPLAY = "+7 (3842) 63-55-55"
 
 telegram_app: Optional[Application] = None
 polling_task: Optional[asyncio.Task] = None
@@ -95,9 +96,11 @@ polling_task: Optional[asyncio.Task] = None
 
 def client_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔄 Начать заново", callback_data="restart")],
         [InlineKeyboardButton("🧱 Оформить новый заказ", callback_data="order")],
         [InlineKeyboardButton("🤖 Спросить нейросеть", callback_data="ai_chat")],
-        [InlineKeyboardButton("👤 Позвать менеджера", callback_data="human")],
+        [InlineKeyboardButton("💬 Написать менеджеру", callback_data="human")],
+        [InlineKeyboardButton("📞 Позвонить / контакты", callback_data="contacts")],
     ])
 
 
@@ -123,9 +126,14 @@ def payment_keyboard() -> ReplyKeyboardMarkup:
                                resize_keyboard=True, one_time_keyboard=True)
 
 
-def phone_keyboard() -> ReplyKeyboardMarkup:
-    btn = KeyboardButton("📱 Отправить мой номер", request_contact=True)
-    return ReplyKeyboardMarkup([[btn]], resize_keyboard=True, one_time_keyboard=True)
+def phone_keyboard() -> ReplyKeyboardRemove:
+    """Телефон принимается только ручным вводом, без передачи контакта Telegram."""
+    return ReplyKeyboardRemove()
+
+
+def _manual_phone(text: str) -> Optional[str]:
+    digits = re.sub(r"\D", "", text or "")
+    return digits if 6 <= len(digits) <= 15 else None
 
 
 def _rub(n) -> str:
@@ -169,12 +177,36 @@ async def send_sales_card(order: dict, quote: dict, name: str, phone: str,
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _operators(context).discard(update.effective_user.id)
     context.user_data.clear()
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         "👋 Здравствуйте! Меня зовут Максим, я из «Бетон Экспресс», Кемерово.\n\n"
         "Можно оформить новый заказ или задать нейросети любой вопрос про бетон: "
         "какую марку выбрать, сколько кубов нужно и сколько будет стоить. 👇",
         reply_markup=client_keyboard(),
     )
+
+
+async def restart_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Вернуть главное меню и очистить текущий сценарий."""
+    await update.callback_query.answer()
+    await start(update, context)
+    return ConversationHandler.END
+
+
+async def show_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Показать телефон компании как контакт, который можно сохранить или вызвать."""
+    if update.callback_query:
+        await update.callback_query.answer()
+    await context.bot.send_contact(
+        chat_id=update.effective_chat.id,
+        phone_number=SALES_PHONE,
+        first_name="Бетон Экспресс",
+    )
+    await update.effective_message.reply_text(
+        f"Диспетчер: {SALES_PHONE_DISPLAY}. Нажмите на контакт выше, чтобы позвонить "
+        "или сохранить номер.",
+        reply_markup=client_keyboard(),
+    )
+    return ConversationHandler.END
 
 
 async def ai_chat_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -202,8 +234,9 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     text = update.message.text.strip()
     # Клиент печатает телефон текстом, когда бот его ждёт (AI-заказ)
-    if context.user_data.get("ai_order") and sum(c.isdigit() for c in text) >= 6:
-        await create_ai_lead(update, context, text, update.effective_user.first_name or "Клиент")
+    manual_phone = _manual_phone(text)
+    if context.user_data.get("ai_order") and manual_phone:
+        await create_ai_lead(update, context, manual_phone, update.effective_user.first_name or "Клиент")
         return
 
     history = context.user_data.setdefault("ai_history", [])
@@ -239,7 +272,8 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if reply:
             await update.message.reply_text(reply)
         await update.message.reply_text(
-            "Оставьте номер телефона — менеджер подтвердит заказ и время доставки 👇",
+            "Введите номер телефона цифрами вручную, например: 8 923 123-45-67. "
+            "Автоматическая отправка контакта отключена.",
             reply_markup=phone_keyboard())
         return
 
@@ -250,9 +284,10 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if not reply or action.get("type") == "fallback":
-        await update.message.reply_text(
-            "Давайте посчитаю точно — нажмите «Рассчитать и заказать» 👇",
-            reply_markup=client_keyboard(),
+        await start_operator(
+            update,
+            context,
+            reason="Нейросеть не смогла уверенно ответить или временно недоступна",
         )
         return
 
@@ -273,7 +308,8 @@ async def start_operator(update: Update, context: ContextTypes.DEFAULT_TYPE, rea
     msg = update.effective_message
     if not effective_sales_chat():
         await msg.reply_text(
-            "Передаю менеджеру — он свяжется с вами. Можете оставить заявку кнопкой ниже.",
+            f"Чат менеджера сейчас недоступен. Позвоните диспетчеру: {SALES_PHONE_DISPLAY} "
+            "или оставьте заявку кнопкой ниже.",
             reply_markup=client_keyboard(),
         )
         return
@@ -297,8 +333,11 @@ async def start_operator(update: Update, context: ContextTypes.DEFAULT_TYPE, rea
     except Exception as exc:
         logger.error("sales notify failed: %s", exc)
         _operators(context).discard(user.id)
-        await msg.reply_text("Менеджер свяжется с вами. Оставьте, пожалуйста, заявку 👇",
-                             reply_markup=client_keyboard())
+        await msg.reply_text(
+            f"Не удалось подключить чат менеджера. Позвоните: {SALES_PHONE_DISPLAY} "
+            "или оставьте заявку 👇",
+            reply_markup=client_keyboard(),
+        )
         return
     await msg.reply_text("✅ Передал менеджеру отдела продаж — скоро ответит. Пишите прямо здесь.")
 
@@ -306,6 +345,12 @@ async def start_operator(update: Update, context: ContextTypes.DEFAULT_TYPE, rea
 async def call_manager(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.callback_query.answer()
     await start_operator(update, context)
+
+
+async def call_manager_from_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Прервать оформление и переключить клиента на живого менеджера."""
+    await call_manager(update, context)
+    return ConversationHandler.END
 
 
 async def relay_to_sales(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -318,14 +363,16 @@ async def relay_to_sales(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.error("relay to sales failed: %s", exc)
 
 
-def _client_id_from_reply(context, reply_to) -> Optional[int]:
-    """id клиента: сперва из карты (в памяти), иначе парсим из текста «(id 12345)».
-    Так ответ работает даже после рестарта и при смене id группы (супергруппа)."""
+def _client_target_from_reply(context, reply_to) -> Optional[tuple[str, int]]:
+    """Площадка и id клиента из карты или текста сообщения отдела продаж."""
+    max_match = re.search(r"max_id\s+(\d+)", reply_to.text or reply_to.caption or "", re.IGNORECASE)
+    if max_match:
+        return "max", int(max_match.group(1))
     cid = _relay_map(context).get(reply_to.message_id)
     if cid:
-        return cid
+        return "telegram", cid
     m = re.search(r"id\s+(\d+)", reply_to.text or reply_to.caption or "")
-    return int(m.group(1)) if m else None
+    return ("telegram", int(m.group(1))) if m else None
 
 
 async def sales_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -335,21 +382,35 @@ async def sales_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # отвечаем только на сообщения бота (карточки/реле), не на чужие
     if not (reply_to.from_user and reply_to.from_user.id == context.bot.id):
         return
-    client_id = _client_id_from_reply(context, reply_to)
-    if not client_id:
+    target = _client_target_from_reply(context, reply_to)
+    if not target:
         return
+    platform, client_id = target
     text = (update.message.text or "").strip()
     if text == "/end":
-        _operators(context).discard(client_id)
-        try:
-            await context.bot.send_message(client_id, "Менеджер завершил диалог. Спросите ещё что-нибудь или оформите заказ 👇",
-                                           reply_markup=client_keyboard())
-        except Exception:
-            pass
+        if platform == "max":
+            from bot_max import main as max_bot
+
+            await max_bot.end_manager_chat(client_id)
+        else:
+            _operators(context).discard(client_id)
+            try:
+                await context.bot.send_message(
+                    client_id,
+                    "Менеджер завершил диалог. Спросите ещё что-нибудь или оформите заказ 👇",
+                    reply_markup=client_keyboard(),
+                )
+            except Exception:
+                pass
         await update.message.reply_text("Диалог с клиентом завершён.")
         return
     try:
-        await context.bot.send_message(client_id, f"👨‍💼 Менеджер: {text}")
+        if platform == "max":
+            from bot_max import main as max_bot
+
+            await max_bot.send_to_max_user(client_id, f"👨‍💼 Менеджер: {text}")
+        else:
+            await context.bot.send_message(client_id, f"👨‍💼 Менеджер: {text}")
     except Exception as exc:
         logger.error("sales_reply deliver failed: %s", exc)
 
@@ -486,7 +547,8 @@ async def enter_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def enter_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["payment_method"] = update.message.text.strip()
     await update.message.reply_text(
-        "Оставьте номер телефона — менеджер подтвердит заказ и время доставки 👇",
+        "Введите номер телефона цифрами вручную, например: 8 923 123-45-67. "
+        "Автоматическая отправка контакта отключена.",
         reply_markup=phone_keyboard(),
     )
     return PHONE
@@ -519,13 +581,15 @@ def format_quote(ud: dict) -> str:
 
 async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.message.contact:
-        phone = update.message.contact.phone_number
-        name = update.message.contact.first_name or update.effective_user.first_name
-    else:
-        phone = update.message.text.strip()
-        name = update.effective_user.first_name or "Клиент"
-    if len(phone) < 6:
-        await update.message.reply_text("Похоже, номер неполный. Отправьте телефон кнопкой ниже.")
+        await update.message.reply_text(
+            "Контакт не принимаю. Введите номер телефона цифрами вручную, например: "
+            "8 923 123-45-67."
+        )
+        return PHONE
+    phone = _manual_phone(update.message.text or "")
+    name = update.effective_user.first_name or "Клиент"
+    if not phone:
+        await update.message.reply_text("Похоже, номер неполный. Введите его цифрами вручную.")
         return PHONE
 
     ud = context.user_data
@@ -607,14 +671,15 @@ async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
-# ── AI-заказ: телефон кнопкой → лид (без ConversationHandler) ────────────────
+# ── AI-заказ: телефон вручную → лид (без ConversationHandler) ────────────────
 
 async def ai_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Клиент поделился контактом в AI-режиме (после request_phone)."""
+    """Автоматические контакты отключены: просим ручной ввод номера."""
     if not context.user_data.get("ai_order"):
         return
-    c = update.message.contact
-    await create_ai_lead(update, context, c.phone_number, c.first_name or update.effective_user.first_name)
+    await update.message.reply_text(
+        "Введите номер телефона цифрами вручную, например: 8 923 123-45-67."
+    )
 
 
 async def create_ai_lead(update: Update, context: ContextTypes.DEFAULT_TYPE, phone: str, name: str) -> None:
@@ -773,7 +838,10 @@ def create_bot() -> Optional[Application]:
             CommandHandler("cancel", cancel),
             CommandHandler("start", restart),
             CommandHandler("ai", ai_chat_entry),
+            CallbackQueryHandler(restart_callback, pattern=r"^restart$"),
             CallbackQueryHandler(ai_chat_entry, pattern=r"^ai_chat$"),
+            CallbackQueryHandler(show_contacts, pattern=r"^contacts$"),
+            CallbackQueryHandler(call_manager_from_order, pattern=r"^human$"),
         ],
         allow_reentry=True,
     )
@@ -783,7 +851,9 @@ def create_bot() -> Optional[Application]:
     app.add_handler(CommandHandler("ai", ai_chat_entry))
     app.add_handler(CommandHandler("schet", invoice_start))
     app.add_handler(CommandHandler("invoice", invoice_start))
+    app.add_handler(CallbackQueryHandler(restart_callback, pattern=r"^restart$"))
     app.add_handler(CallbackQueryHandler(ai_chat_entry, pattern=r"^ai_chat$"))
+    app.add_handler(CallbackQueryHandler(show_contacts, pattern=r"^contacts$"))
     app.add_handler(CallbackQueryHandler(call_manager, pattern=r"^human$"))
     # Ответ менеджера из группы: любой reply в группе на сообщение бота (не зависит
     # от точного SALES_CHAT_ID — устойчиво к смене id при апгрейде в супергруппу).

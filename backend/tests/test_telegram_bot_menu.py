@@ -17,7 +17,9 @@ def test_client_menu_contains_repeat_order_and_ai_chat():
 
     assert actions["order"] == "🧱 Оформить новый заказ"
     assert actions["ai_chat"] == "🤖 Спросить нейросеть"
-    assert actions["human"] == "👤 Позвать менеджера"
+    assert actions["restart"] == "🔄 Начать заново"
+    assert actions["human"] == "💬 Написать менеджеру"
+    assert actions["contacts"] == "📞 Позвонить / контакты"
 
 
 def test_ai_chat_entry_resets_previous_order_and_prompts_for_message():
@@ -62,3 +64,19 @@ def test_order_entry_clears_previous_order_data():
     assert 42 not in context.bot_data["operators"]
     callback.answer.assert_awaited_once()
     message.reply_text.assert_awaited_once()
+
+
+def test_phone_is_accepted_only_from_manual_text():
+    assert bot_main._manual_phone("8 923 123-45-67") == "89231234567"
+    assert bot_main._manual_phone("номер неизвестен") is None
+
+
+def test_sales_reply_detects_max_client_target():
+    reply_to = SimpleNamespace(
+        message_id=10,
+        text="Клиент из MAX (max_id 4205271841)",
+        caption=None,
+    )
+    context = SimpleNamespace(bot_data={"relay": {}})
+
+    assert bot_main._client_target_from_reply(context, reply_to) == ("max", 4205271841)

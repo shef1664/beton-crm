@@ -1,8 +1,8 @@
 """
 Клиентский AI-бот заказа бетона для мессенджера МАКС (max.ru), встроен в backend.
 
-МАКС Bot API — наследник TamTam Bot API: long-polling, инлайн-кнопки (callback),
-кнопка request_contact для телефона. Ядро (AI, зоны, цены, лид) переиспользуется —
+МАКС Bot API: long-polling и инлайн-кнопки (callback). Телефон клиент вводит
+вручную. Ядро (AI, зоны, цены, лид) переиспользуется —
 адаптер дёргает те же backend-эндпоинты по localhost.
 
 ⚠️ СВЕРИТЬ на живом токене (докой из окружения не достучаться): base URL, точные
@@ -16,6 +16,7 @@ RUN_MAX_BOT=true чтобы включить опрос.
 import asyncio
 import logging
 import os
+import re
 
 import httpx
 
@@ -30,9 +31,13 @@ BACKEND_URL = f"http://127.0.0.1:{_PORT}"
 GRADES = ["М100", "М150", "М200", "М250", "М300", "М350", "М400", "М450"]
 DATE_TO_URGENCY = {"Сегодня": "today", "Завтра": "normal", "На неделе": "normal", "Не срочно": "normal"}
 AI_HISTORY_MAX = 20
+SALES_PHONE = "+73842635555"
+SALES_PHONE_DISPLAY = "+7 (3842) 63-55-55"
 
 # Состояния FSM per user
-IDLE, VOLUME, ADDRESS, DATE, PAYMENT, PHONE = "idle", "volume", "address", "date", "payment", "phone"
+IDLE, VOLUME, ADDRESS, DATE, PAYMENT, PHONE, MANAGER = (
+    "idle", "volume", "address", "date", "payment", "phone", "manager"
+)
 
 _sessions: dict = {}       # user_id -> dict(state, grade, volume, address, quote, ai_history, ...)
 _poll_task = None
@@ -61,7 +66,7 @@ async def _max_get_updates(client: httpx.AsyncClient, marker):
 
 
 async def _max_send(client: httpx.AsyncClient, user_id: int, text: str, buttons=None):
-    """Отправить сообщение пользователю. buttons — список рядов callback/request_contact."""
+    """Отправить сообщение пользователю. buttons — список рядов callback-кнопок."""
     body = {"text": text}
     if buttons:
         body["attachments"] = [{"type": "inline_keyboard", "payload": {"buttons": buttons}}]
@@ -91,8 +96,13 @@ def _kb_grades():
 
 
 def _kb_main():
-    return [[_btn_cb("🧮 Рассчитать и заказать", "order")],
-            [_btn_cb("👤 Позвать менеджера", "human")]]
+    return [
+        [_btn_cb("🔄 Начать заново", "restart")],
+        [_btn_cb("🧱 Оформить новый заказ", "order")],
+        [_btn_cb("🤖 Спросить нейросеть", "ai_chat")],
+        [_btn_cb("💬 Написать менеджеру", "human")],
+        [_btn_cb("📞 Позвонить / контакты", "contacts")],
+    ]
 
 
 def _kb_date():
@@ -106,9 +116,9 @@ def _kb_pay():
             [_btn_cb("Перевод на карту", "pay:Перевод на карту")]]
 
 
-def _kb_phone():
-    # ⚠️ Сверить: тип кнопки запроса контакта в МАКС (TamTam: "request_contact").
-    return [[{"type": "request_contact", "text": "📱 Отправить мой номер"}]]
+def _manual_phone(text: str):
+    digits = re.sub(r"\D", "", text or "")
+    return digits if 6 <= len(digits) <= 15 else None
 
 
 def _rub(n):
@@ -141,12 +151,68 @@ def _format_quote(s: dict) -> str:
 # ── Диалог (та же логика, что в Telegram) ────────────────────────────────────
 
 async def _greet(client, uid):
-    s = _sess(uid)
-    s.update({"state": IDLE, "ai_history": []})
+    _sessions[uid] = {"state": IDLE, "ai_history": []}
     await _max_send(client, uid,
         "👋 Здравствуйте! Я Максим из «Бетон Экспресс», Кемерово.\n"
-        "Спросите про бетон (марка под фундамент, объём, цена) или нажмите «Рассчитать и заказать».",
+        "Оформите новый заказ, спросите нейросеть или свяжитесь с менеджером.\n"
+        f"Телефон диспетчера: {SALES_PHONE_DISPLAY}.",
         _kb_main())
+
+
+async def _ai_entry(client, uid):
+    _sessions[uid] = {"state": IDLE, "ai_history": []}
+    await _max_send(
+        client,
+        uid,
+        "🤖 Я на связи. Напишите вопрос про бетон обычным сообщением. Если не смогу "
+        "ответить уверенно, сразу подключу менеджера.",
+        _kb_main(),
+    )
+
+
+async def _show_contacts(client, uid):
+    await _max_send(
+        client,
+        uid,
+        f"📞 Бетон Экспресс\nДиспетчер: {SALES_PHONE_DISPLAY}\n"
+        f"Полный номер: {SALES_PHONE}\nНажмите на номер в сообщении, чтобы позвонить, "
+        "или выберите «Написать менеджеру».",
+        _kb_main(),
+    )
+
+
+async def send_to_max_user(uid: int, text: str) -> None:
+    """Отправить ответ менеджера из Telegram клиенту в MAX."""
+    async with httpx.AsyncClient(timeout=20) as client:
+        await _max_send(client, uid, text, _kb_main())
+
+
+async def end_manager_chat(uid: int) -> None:
+    """Завершить прямой диалог с менеджером и вернуть меню MAX."""
+    _sessions[uid] = {"state": IDLE, "ai_history": []}
+    await send_to_max_user(
+        uid,
+        "Менеджер завершил диалог. Можно начать новый заказ или задать вопрос нейросети.",
+    )
+
+
+async def _notify_sales_manager(uid: int, name: str, text: str) -> bool:
+    """Передать сообщение MAX-клиента в Telegram-группу отдела продаж."""
+    try:
+        from bot import main as telegram_bot
+
+        chat_id = telegram_bot.effective_sales_chat()
+        if not chat_id or telegram_bot.telegram_app is None:
+            return False
+        await telegram_bot.telegram_app.bot.send_message(
+            chat_id,
+            f"💬 Клиент из MAX\nИмя: {name or 'Клиент'} (max_id {uid})\n"
+            f"Сообщение: {text}\n\nОтветьте reply на это сообщение. /end — завершить диалог.",
+        )
+        return True
+    except Exception as exc:
+        logger.error("MAX manager relay failed: %s", exc)
+        return False
 
 
 async def _consult(client, uid, text):
@@ -183,7 +249,12 @@ async def _consult(client, uid, text):
             s["quote"] = action["quote"]
         if reply:
             await _max_send(client, uid, reply)
-        await _max_send(client, uid, "Оставьте номер — менеджер подтвердит заказ и время доставки 👇", _kb_phone())
+        await _max_send(
+            client,
+            uid,
+            "Введите номер телефона цифрами вручную, например: 8 923 123-45-67. "
+            "Автоматическая отправка контакта отключена.",
+        )
         return
     if action.get("type") == "call_human":
         if reply:
@@ -191,7 +262,7 @@ async def _consult(client, uid, text):
         await _human(client, uid)
         return
     if not reply or action.get("type") == "fallback":
-        await _max_send(client, uid, "Давайте посчитаю точно — нажмите «Рассчитать и заказать».", _kb_main())
+        await _human(client, uid, reason="Нейросеть не смогла уверенно ответить или временно недоступна")
         return
     await _max_send(client, uid, reply, _kb_main())
 
@@ -199,6 +270,9 @@ async def _consult(client, uid, text):
 async def _order_entry(client, uid):
     s = _sess(uid)
     prefill = s.get("prefill") or {}
+    name = s.get("name")
+    _sessions[uid] = {"state": IDLE, "ai_history": [], "name": name}
+    s = _sess(uid)
     grade = prefill.get("grade")
     if grade in GRADES:
         s["grade"] = grade
@@ -217,13 +291,37 @@ async def _order_entry(client, uid):
     await _max_send(client, uid, "Выберите марку бетона:", _kb_grades())
 
 
-async def _human(client, uid):
-    # v1 для МАКС: просим телефон, помечаем заявку как «просит менеджера».
+async def _human(client, uid, reason: str = ""):
+    """Включить прямой диалог MAX-клиента с отделом продаж в Telegram."""
     s = _sess(uid)
     s["human"] = True
-    s["state"] = PHONE
-    await _max_send(client, uid,
-        "Передаю менеджеру. Оставьте номер — перезвонит в ближайшее время.", _kb_phone())
+    s["state"] = MANAGER
+    intro = reason or "Клиент хочет связаться с менеджером"
+    connected = await _notify_sales_manager(uid, s.get("name") or "Клиент", intro)
+    if connected:
+        await _max_send(
+            client,
+            uid,
+            "✅ Менеджер подключён. Напишите сообщение прямо здесь — ответ придёт в этот чат. "
+            f"Также можно позвонить: {SALES_PHONE_DISPLAY}.",
+            _kb_main(),
+        )
+    else:
+        await _max_send(
+            client,
+            uid,
+            f"Сейчас чат менеджера недоступен. Позвоните диспетчеру: {SALES_PHONE_DISPLAY}.",
+            _kb_main(),
+        )
+
+
+async def _relay_to_manager(client, uid, text):
+    s = _sess(uid)
+    connected = await _notify_sales_manager(uid, s.get("name") or "Клиент", text)
+    if connected:
+        await _max_send(client, uid, "✅ Сообщение передано менеджеру. Ожидайте ответ здесь.")
+    else:
+        await _max_send(client, uid, f"Не удалось передать сообщение. Позвоните: {SALES_PHONE_DISPLAY}.", _kb_main())
 
 
 async def _do_quote(client, uid):
@@ -283,12 +381,13 @@ async def _create_lead(client, uid, phone, name):
     # по прямому каналу api.telegram.org — надёжно и без дублей с TG-ботом.
     _sessions[uid] = {"state": IDLE, "ai_history": []}
     await _max_send(client, uid, txt)
+    await _max_send(client, uid, "Можно оформить ещё один заказ или продолжить общение 👇", _kb_main())
 
 
 # ── Роутинг апдейтов ─────────────────────────────────────────────────────────
 
 def _extract_phone(message: dict):
-    """Достать телефон из contact-вложения (⚠️ сверить формат) или из текста."""
+    """Определить contact-вложение, чтобы отклонить автоматическую передачу номера."""
     for att in (message.get("body", {}).get("attachments") or message.get("attachments") or []):
         if att.get("type") == "contact":
             p = att.get("payload") or {}
@@ -308,15 +407,45 @@ async def _handle_message(client, update):
     name = sender.get("name") or "Клиент"
     text = (message.get("body") or {}).get("text") or ""
     s = _sess(uid)
+    s["name"] = name
 
-    # контакт (телефон)
-    phone = _extract_phone(message)
-    if s["state"] == PHONE and (phone or len(text.strip()) >= 6):
-        await _create_lead(client, uid, phone or text.strip(), name)
+    command = text.strip().lower()
+    if command in ("/start", "start", "старт", "начать", "начать заново"):
+        await _greet(client, uid)
+        return
+    if command in ("/order", "заказ", "новый заказ"):
+        await _order_entry(client, uid)
+        return
+    if command in ("/ai", "нейросеть", "спросить нейросеть"):
+        await _ai_entry(client, uid)
+        return
+    if command in ("/contacts", "контакты", "телефон", "позвонить"):
+        await _show_contacts(client, uid)
+        return
+    if command in ("/manager", "менеджер", "написать менеджеру"):
+        await _human(client, uid)
         return
 
-    if text.strip() in ("/start", "start", "Старт", "старт"):
-        await _greet(client, uid)
+    # Телефон принимается только ручным вводом, контакт-вложение отклоняем.
+    if s["state"] == PHONE:
+        if _extract_phone(message):
+            await _max_send(
+                client,
+                uid,
+                "Контакт не принимаю. Введите номер телефона цифрами вручную, например: "
+                "8 923 123-45-67.",
+            )
+            return
+        phone = _manual_phone(text)
+        if phone:
+            await _create_lead(client, uid, phone, name)
+        else:
+            await _max_send(client, uid, "Введите корректный номер телефона цифрами вручную.")
+        return
+
+    if s["state"] == MANAGER:
+        if text.strip():
+            await _relay_to_manager(client, uid, text.strip())
         return
 
     st = s["state"]
@@ -339,10 +468,6 @@ async def _handle_message(client, update):
         s["address"] = text.strip()
         await _do_quote(client, uid)
         return
-    if st == PHONE:
-        await _max_send(client, uid, "Отправьте номер кнопкой ниже 👇", _kb_phone())
-        return
-
     # иначе — свободный чат с AI
     await _consult(client, uid, text.strip())
 
@@ -355,10 +480,17 @@ async def _handle_callback(client, update):
     if not uid:
         return
     s = _sess(uid)
-    if payload == "order":
+    s["name"] = user.get("name") or s.get("name") or "Клиент"
+    if payload == "restart":
+        await _greet(client, uid)
+    elif payload == "order":
         await _order_entry(client, uid)
+    elif payload == "ai_chat":
+        await _ai_entry(client, uid)
     elif payload == "human":
         await _human(client, uid)
+    elif payload == "contacts":
+        await _show_contacts(client, uid)
     elif payload.startswith("grade:"):
         s["grade"] = payload.split(":", 1)[1]; s["state"] = VOLUME
         await _max_send(client, uid, f"Марка: {s['grade']} ✅\nСколько кубов нужно? Напишите число (м³):")
@@ -368,7 +500,12 @@ async def _handle_callback(client, update):
         await _max_send(client, uid, "Способ оплаты?", _kb_pay())
     elif payload.startswith("pay:"):
         s["payment_method"] = payload.split(":", 1)[1]; s["state"] = PHONE
-        await _max_send(client, uid, "Оставьте номер телефона — менеджер подтвердит заказ 👇", _kb_phone())
+        await _max_send(
+            client,
+            uid,
+            "Введите номер телефона цифрами вручную, например: 8 923 123-45-67. "
+            "Автоматическая отправка контакта отключена.",
+        )
 
 
 async def _handle_update(client, update):
