@@ -24,6 +24,7 @@ from typing import Optional
 
 import httpx
 from telegram import (
+    BotCommand,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
@@ -94,7 +95,8 @@ polling_task: Optional[asyncio.Task] = None
 
 def client_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🧮 Рассчитать и заказать", callback_data="order")],
+        [InlineKeyboardButton("🧱 Оформить новый заказ", callback_data="order")],
+        [InlineKeyboardButton("🤖 Спросить нейросеть", callback_data="ai_chat")],
         [InlineKeyboardButton("👤 Позвать менеджера", callback_data="human")],
     ])
 
@@ -169,10 +171,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.clear()
     await update.message.reply_text(
         "👋 Здравствуйте! Меня зовут Максим, я из «Бетон Экспресс», Кемерово.\n\n"
-        "Спросите что угодно про бетон — какая марка под ваш фундамент, сколько кубов "
-        "нужно, сколько будет стоить. Или сразу нажмите «Рассчитать и заказать» 👇",
+        "Можно оформить новый заказ или задать нейросети любой вопрос про бетон: "
+        "какую марку выбрать, сколько кубов нужно и сколько будет стоить. 👇",
         reply_markup=client_keyboard(),
     )
+
+
+async def ai_chat_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Начать новый AI-диалог из меню или командой /ai."""
+    if update.callback_query:
+        await update.callback_query.answer()
+    _operators(context).discard(update.effective_user.id)
+    context.user_data.clear()
+    await update.effective_message.reply_text(
+        "🤖 Я на связи. Напишите вопрос обычным сообщением — помогу выбрать марку, "
+        "посчитать объём и стоимость бетона.",
+    )
+    return ConversationHandler.END
 
 
 async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -363,6 +378,8 @@ async def order_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     query = update.callback_query
     await query.answer()
     prefill = context.user_data.get("prefill") or {}
+    _operators(context).discard(update.effective_user.id)
+    context.user_data.clear()
     grade = prefill.get("grade")
     if grade in GRADES:
         context.user_data["grade"] = grade
@@ -383,6 +400,17 @@ async def order_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         )
         return VOLUME
     await query.message.reply_text("Выберите марку бетона:", reply_markup=grades_keyboard())
+    return VOLUME
+
+
+async def order_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Начать новый заказ командой /order в любой момент."""
+    _operators(context).discard(update.effective_user.id)
+    context.user_data.clear()
+    await update.effective_message.reply_text(
+        "Начинаем новый заказ. Выберите марку бетона:",
+        reply_markup=grades_keyboard(),
+    )
     return VOLUME
 
 
@@ -557,7 +585,12 @@ async def enter_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         except Exception as exc:
             logger.error("sales card failed: %s", exc)
 
+    context.user_data.clear()
     await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text(
+        "Можно сразу оформить ещё один заказ или продолжить общение 👇",
+        reply_markup=client_keyboard(),
+    )
     return ConversationHandler.END
 
 
@@ -623,10 +656,12 @@ async def create_ai_lead(update: Update, context: ContextTypes.DEFAULT_TYPE, pho
 
     await send_sales_card(order, q, name, phone, source="бота (AI)")
 
-    context.user_data.pop("ai_order", None)
-    context.user_data.pop("ai_quote", None)
-    context.user_data["ai_history"] = []
+    context.user_data.clear()
     await update.message.reply_text(txt, reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text(
+        "Можно сразу оформить ещё один заказ или задать новый вопрос 👇",
+        reply_markup=client_keyboard(),
+    )
 
 
 # ── Счета (встроенный генератор PDF со счётом и QR) ───────────────────────────
@@ -717,7 +752,10 @@ def create_bot() -> Optional[Application]:
     app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
 
     order_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(order_entry, pattern=r"^order$")],
+        entry_points=[
+            CallbackQueryHandler(order_entry, pattern=r"^order$"),
+            CommandHandler("order", order_command),
+        ],
         states={
             VOLUME: [
                 CallbackQueryHandler(choose_grade, pattern=r"^grade:"),
@@ -731,14 +769,21 @@ def create_bot() -> Optional[Application]:
                 MessageHandler(filters.TEXT & ~filters.COMMAND, enter_phone),
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", restart)],
+        fallbacks=[
+            CommandHandler("cancel", cancel),
+            CommandHandler("start", restart),
+            CommandHandler("ai", ai_chat_entry),
+            CallbackQueryHandler(ai_chat_entry, pattern=r"^ai_chat$"),
+        ],
         allow_reentry=True,
     )
 
     app.add_handler(order_conv)
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("ai", ai_chat_entry))
     app.add_handler(CommandHandler("schet", invoice_start))
     app.add_handler(CommandHandler("invoice", invoice_start))
+    app.add_handler(CallbackQueryHandler(ai_chat_entry, pattern=r"^ai_chat$"))
     app.add_handler(CallbackQueryHandler(call_manager, pattern=r"^human$"))
     # Ответ менеджера из группы: любой reply в группе на сообщение бота (не зависит
     # от точного SALES_CHAT_ID — устойчиво к смене id при апгрейде в супергруппу).
@@ -780,6 +825,15 @@ async def start_bot() -> bool:
         return False
     try:
         await telegram_app.initialize()
+        try:
+            await telegram_app.bot.set_my_commands([
+                BotCommand("start", "Главное меню / начать заново"),
+                BotCommand("order", "Оформить новый заказ"),
+                BotCommand("ai", "Задать вопрос нейросети"),
+                BotCommand("cancel", "Отменить текущее оформление"),
+            ])
+        except Exception as exc:
+            logger.warning("Telegram commands setup failed: %s", exc)
         await telegram_app.start()
         polling_task = asyncio.create_task(_polling_loop(telegram_app), name="telegram-bot-polling")
         logger.info("Клиентский AI-бот запущен (в backend)")
