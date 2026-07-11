@@ -1,0 +1,13 @@
+/var/log/asterisk/debug /var/log/asterisk/messages /var/log/asterisk/full /var/log/asterisk/*_log {
+    daily
+    maxsize 100M
+    rotate 3
+    compress
+    delaycompress
+    missingok
+    notifempty
+    sharedscripts
+    postrotate
+        /usr/sbin/invoke-rc.d asterisk logger-reload > /dev/null 2>&1 || true
+    endscript
+}

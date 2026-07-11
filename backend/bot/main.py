@@ -868,7 +868,11 @@ def create_bot() -> Optional[Application]:
         logger.warning("TELEGRAM_BOT_TOKEN не задан — клиентский бот отключён")
         return None
 
-    app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+    builder = Application.builder().token(settings.TELEGRAM_BOT_TOKEN)
+    proxy_url = os.getenv("TELEGRAM_PROXY_URL", "").strip()
+    if proxy_url:
+        builder = builder.proxy(proxy_url).get_updates_proxy(proxy_url)
+    app = builder.build()
 
     order_conv = ConversationHandler(
         entry_points=[

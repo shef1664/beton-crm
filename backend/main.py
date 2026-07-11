@@ -40,6 +40,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+# httpx logs full request URLs; Telegram and MAX put bot tokens in those URLs.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(

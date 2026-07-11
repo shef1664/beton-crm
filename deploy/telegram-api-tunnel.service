@@ -1,0 +1,14 @@
+[Unit]
+Description=Private Russian SSH relay for Telegram Bot API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ssh -N -D 127.0.0.1:1080 -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes -i /root/.ssh/beton-telegram-relay root@111.88.103.131
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=Beton Telegram and MAX bots (Russian data path)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/beton-bot/backend
+EnvironmentFile=/opt/beton-bot/backend/.env
+ExecStart=/opt/beton-bot/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8081
+Restart=always
+RestartSec=5
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/beton-bot/backend /tmp
+
+[Install]
+WantedBy=multi-user.target
