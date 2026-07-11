@@ -16,7 +16,7 @@ def test_client_menu_contains_repeat_order_and_ai_chat():
     actions = {button.callback_data: button.text for row in keyboard for button in row}
 
     assert actions["order"] == "🧱 Оформить новый заказ"
-    assert actions["ai_chat"] == "🤖 Спросить нейросеть"
+    assert actions["ai_chat"] == "📋 Помочь с расчётом"
     assert actions["restart"] == "🔄 Начать заново"
     assert actions["human"] == "💬 Написать менеджеру"
     assert actions["contacts"] == "📞 Позвонить / контакты"
@@ -42,7 +42,8 @@ def test_ai_chat_entry_resets_previous_order_and_prompts_for_message():
     assert 42 not in context.bot_data["operators"]
     callback.answer.assert_awaited_once()
     message.reply_text.assert_awaited_once()
-    assert "Напишите вопрос" in message.reply_text.await_args.args[0]
+    assert "Чтобы быстрее получить расчёт" in message.reply_text.await_args.args[0]
+    assert message.reply_text.await_args.kwargs == {}
 
 
 def test_order_entry_clears_previous_order_data():

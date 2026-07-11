@@ -98,9 +98,15 @@ def client_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔄 Начать заново", callback_data="restart")],
         [InlineKeyboardButton("🧱 Оформить новый заказ", callback_data="order")],
-        [InlineKeyboardButton("🤖 Спросить нейросеть", callback_data="ai_chat")],
+        [InlineKeyboardButton("📋 Помочь с расчётом", callback_data="ai_chat")],
         [InlineKeyboardButton("💬 Написать менеджеру", callback_data="human")],
         [InlineKeyboardButton("📞 Позвонить / контакты", callback_data="contacts")],
+    ])
+
+
+def order_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🧱 Оформить заказ", callback_data="order")],
     ])
 
 
@@ -179,8 +185,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.clear()
     await update.effective_message.reply_text(
         "👋 Здравствуйте! Меня зовут Максим, я из «Бетон Экспресс», Кемерово.\n\n"
-        "Можно оформить новый заказ или задать нейросети любой вопрос про бетон: "
-        "какую марку выбрать, сколько кубов нужно и сколько будет стоить. 👇",
+        "Можно оформить новый заказ или получить помощь с расчётом: подобрать марку, "
+        "посчитать объём и стоимость бетона. 👇",
         reply_markup=client_keyboard(),
     )
 
@@ -216,8 +222,11 @@ async def ai_chat_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     _operators(context).discard(update.effective_user.id)
     context.user_data.clear()
     await update.effective_message.reply_text(
-        "🤖 Я на связи. Напишите вопрос обычным сообщением — помогу выбрать марку, "
-        "посчитать объём и стоимость бетона.",
+        "Чтобы быстрее получить расчёт, напишите одним сообщением:\n"
+        "1. Что нужно залить.\n"
+        "2. Размеры объекта.\n"
+        "3. Адрес доставки.\n\n"
+        "Например: «Плита 10 × 8 м, толщина 20 см, доставка в Кемерово»."
     )
     return ConversationHandler.END
 
@@ -263,7 +272,7 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context.user_data["prefill"] = {"grade": action.get("grade"), "volume": action.get("volume")}
         if reply:
             await update.message.reply_text(reply)
-        await update.message.reply_text("Готов оформить — нажмите кнопку 👇", reply_markup=client_keyboard())
+        await update.message.reply_text("Готов оформить — нажмите кнопку 👇", reply_markup=order_keyboard())
         return
 
     if action.get("type") == "request_phone":
@@ -291,7 +300,7 @@ async def consult(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    await update.message.reply_text(reply, reply_markup=client_keyboard())
+    await update.message.reply_text(reply)
 
 
 # ── Живая передача менеджеру (режим оператора) ───────────────────────────────
@@ -899,7 +908,7 @@ async def start_bot() -> bool:
             await telegram_app.bot.set_my_commands([
                 BotCommand("start", "Главное меню / начать заново"),
                 BotCommand("order", "Оформить новый заказ"),
-                BotCommand("ai", "Задать вопрос нейросети"),
+                BotCommand("ai", "Помощь с расчётом"),
                 BotCommand("cancel", "Отменить текущее оформление"),
             ])
         except Exception as exc:

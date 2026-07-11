@@ -14,7 +14,7 @@ def test_max_main_menu_exposes_all_client_actions():
     assert actions == {
         "restart": "🔄 Начать заново",
         "order": "🧱 Оформить новый заказ",
-        "ai_chat": "🤖 Спросить нейросеть",
+        "ai_chat": "📋 Помочь с расчётом",
         "human": "💬 Написать менеджеру",
         "contacts": "📞 Позвонить / контакты",
     }
@@ -23,6 +23,18 @@ def test_max_main_menu_exposes_all_client_actions():
 def test_max_phone_is_accepted_only_from_manual_text():
     assert max_bot._manual_phone("8 923 123-45-67") == "89231234567"
     assert max_bot._manual_phone("нет телефона") is None
+
+
+def test_max_ai_entry_shows_one_hint_without_repeating_menu(monkeypatch):
+    send = AsyncMock()
+    monkeypatch.setattr(max_bot, "_max_send", send)
+    client = object()
+
+    asyncio.run(max_bot._ai_entry(client, 77))
+
+    send.assert_awaited_once()
+    assert "Чтобы быстрее получить расчёт" in send.await_args.args[2]
+    assert len(send.await_args.args) == 3
 
 
 def test_max_start_command_wins_while_bot_waits_for_phone(monkeypatch):

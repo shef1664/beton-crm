@@ -99,7 +99,7 @@ def _kb_main():
     return [
         [_btn_cb("🔄 Начать заново", "restart")],
         [_btn_cb("🧱 Оформить новый заказ", "order")],
-        [_btn_cb("🤖 Спросить нейросеть", "ai_chat")],
+        [_btn_cb("📋 Помочь с расчётом", "ai_chat")],
         [_btn_cb("💬 Написать менеджеру", "human")],
         [_btn_cb("📞 Позвонить / контакты", "contacts")],
     ]
@@ -154,7 +154,7 @@ async def _greet(client, uid):
     _sessions[uid] = {"state": IDLE, "ai_history": []}
     await _max_send(client, uid,
         "👋 Здравствуйте! Я Максим из «Бетон Экспресс», Кемерово.\n"
-        "Оформите новый заказ, спросите нейросеть или свяжитесь с менеджером.\n"
+        "Оформите новый заказ, получите помощь с расчётом или свяжитесь с менеджером.\n"
         f"Телефон диспетчера: {SALES_PHONE_DISPLAY}.",
         _kb_main())
 
@@ -164,9 +164,12 @@ async def _ai_entry(client, uid):
     await _max_send(
         client,
         uid,
-        "🤖 Я на связи. Напишите вопрос про бетон обычным сообщением. Если не смогу "
-        "ответить уверенно, сразу подключу менеджера.",
-        _kb_main(),
+        "Чтобы быстрее получить расчёт, напишите одним сообщением:\n"
+        "1. Что нужно залить.\n"
+        "2. Размеры объекта.\n"
+        "3. Адрес доставки.\n\n"
+        "Например: «Плита 10 × 8 м, толщина 20 см, доставка в Кемерово». "
+        "Если не смогу ответить уверенно, сразу подключу менеджера.",
     )
 
 
@@ -181,10 +184,10 @@ async def _show_contacts(client, uid):
     )
 
 
-async def send_to_max_user(uid: int, text: str) -> None:
+async def send_to_max_user(uid: int, text: str, show_menu: bool = False) -> None:
     """Отправить ответ менеджера из Telegram клиенту в MAX."""
     async with httpx.AsyncClient(timeout=20) as client:
-        await _max_send(client, uid, text, _kb_main())
+        await _max_send(client, uid, text, _kb_main() if show_menu else None)
 
 
 async def end_manager_chat(uid: int) -> None:
@@ -192,7 +195,8 @@ async def end_manager_chat(uid: int) -> None:
     _sessions[uid] = {"state": IDLE, "ai_history": []}
     await send_to_max_user(
         uid,
-        "Менеджер завершил диалог. Можно начать новый заказ или задать вопрос нейросети.",
+        "Менеджер завершил диалог. Можно начать новый заказ или получить помощь с расчётом.",
+        show_menu=True,
     )
 
 
@@ -264,7 +268,7 @@ async def _consult(client, uid, text):
     if not reply or action.get("type") == "fallback":
         await _human(client, uid, reason="Нейросеть не смогла уверенно ответить или временно недоступна")
         return
-    await _max_send(client, uid, reply, _kb_main())
+    await _max_send(client, uid, reply)
 
 
 async def _order_entry(client, uid):
@@ -304,7 +308,6 @@ async def _human(client, uid, reason: str = ""):
             uid,
             "✅ Менеджер подключён. Напишите сообщение прямо здесь — ответ придёт в этот чат. "
             f"Также можно позвонить: {SALES_PHONE_DISPLAY}.",
-            _kb_main(),
         )
     else:
         await _max_send(
@@ -416,7 +419,7 @@ async def _handle_message(client, update):
     if command in ("/order", "заказ", "новый заказ"):
         await _order_entry(client, uid)
         return
-    if command in ("/ai", "нейросеть", "спросить нейросеть"):
+    if command in ("/ai", "нейросеть", "спросить нейросеть", "помочь с расчётом"):
         await _ai_entry(client, uid)
         return
     if command in ("/contacts", "контакты", "телефон", "позвонить"):
