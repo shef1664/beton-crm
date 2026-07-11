@@ -1,4 +1,4 @@
-"""MAX orders can be repeated by the same customer phone."""
+"""Messenger orders can be repeated by the same customer phone."""
 
 from __future__ import annotations
 
@@ -44,4 +44,24 @@ def test_max_source_allows_repeat_order_with_same_phone(app_client, monkeypatch)
     assert data["status"] == "success"
     assert data["lead_id"] == 999_888
     main_module.amocrm.create_lead.assert_awaited_once()
+    main_module.baserow.log_lead.assert_awaited_once()
+
+
+def test_telegram_webhook_allows_repeat_order_with_same_phone(app_client, monkeypatch):
+    import main as main_module
+
+    monkeypatch.setattr(main_module.duplicate_checker, "check", AsyncMock(return_value=12345))
+
+    response = app_client.post(
+        "/webhooks/telegram",
+        json={"lead_data": _lead_payload("landing", "site")},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["lead_id"] == 999_888
+    created_lead = main_module.amocrm.create_lead.await_args.args[0]
+    assert created_lead["source"] == "telegram"
+    assert created_lead["source_platform"] == "telegram"
     main_module.baserow.log_lead.assert_awaited_once()

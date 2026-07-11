@@ -67,8 +67,9 @@ sales_automation = SalesAutomationService()
 
 def _allows_repeat_orders(lead_data: "LeadCreate") -> bool:
     """Sources where the same phone can create multiple independent orders."""
+    repeat_order_sources = {"max", "telegram"}
     return any(
-        (value or "").strip().lower() == "max"
+        (value or "").strip().lower() in repeat_order_sources
         for value in (lead_data.source, lead_data.source_platform)
     )
 
@@ -77,7 +78,7 @@ class LeadCreate(BaseModel):
     name: str = Field(..., description="Имя клиента")
     phone: str = Field(..., description="Телефон")
     source: Optional[str] = Field("landing", description="Короткий источник")
-    source_platform: Optional[str] = Field("site", description="Платформа: site, yandex_maps, 2gis, avito, vk, max")
+    source_platform: Optional[str] = Field("site", description="Платформа: site, yandex_maps, 2gis, avito, vk, telegram, max")
     source_channel: Optional[str] = Field("form", description="Канал: form, call, chat, message")
     source_account: Optional[str] = Field(None, description="Аккаунт площадки")
     source_listing: Optional[str] = Field(None, description="Объявление, карточка или объект")
@@ -812,7 +813,7 @@ async def amocrm_webhook(data: dict):
 
 
 @app.post("/webhooks/telegram")
-async def telegram_webhook(data: dict):
+async def telegram_webhook(data: dict, request: Request):
     try:
         logger.info("Webhook от Telegram: %s", data)
         if "lead_data" in data:
@@ -820,7 +821,7 @@ async def telegram_webhook(data: dict):
             lead_data.source = "telegram"
             lead_data.source_platform = "telegram"
             lead_data.source_channel = "message"
-            return await create_lead(lead_data)
+            return await create_lead(lead_data, request)
         return {"status": "ok"}
     except Exception as exc:
         logger.error("Ошибка webhook Telegram: %s", exc)
