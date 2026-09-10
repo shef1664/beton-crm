@@ -22,6 +22,7 @@ import re
 
 import httpx
 
+from config import settings
 from services.speech_to_text import TranscriptionError, transcribe_ogg, voice_input_enabled
 
 logger = logging.getLogger(__name__)
@@ -210,13 +211,22 @@ async def _notify_sales_manager(uid: int, name: str, text: str) -> bool:
         from bot import main as telegram_bot
 
         chat_id = telegram_bot.effective_sales_chat()
-        if not chat_id or telegram_bot.telegram_app is None:
+        if not chat_id or not settings.TELEGRAM_BOT_TOKEN:
             return False
-        await telegram_bot.telegram_app.bot.send_message(
-            chat_id,
-            f"💬 Клиент из MAX\nИмя: {name or 'Клиент'} (max_id {uid})\n"
-            f"Сообщение: {text}\n\nОтветьте reply на это сообщение. /end — завершить диалог.",
-        )
+        url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
+                url,
+                json={
+                    "chat_id": chat_id,
+                    "text": (
+                        f"💬 Клиент из MAX\nИмя: {name or 'Клиент'} (max_id {uid})\n"
+                        f"Сообщение: {text}\n\nОтветьте reply на это сообщение. "
+                        "/end — завершить диалог."
+                    ),
+                },
+            )
+            response.raise_for_status()
         return True
     except Exception as exc:
         logger.error("MAX manager relay failed: %s", exc)
