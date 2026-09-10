@@ -3,9 +3,26 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from bot_max import main as max_bot
+
+
+class _FakeHttpClient:
+    def __init__(self, response, calls, **_kwargs):
+        self.response = response
+        self.calls = calls
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def post(self, url, json):
+        self.calls.append((url, json))
+        return self.response
 
 
 def test_max_main_menu_exposes_all_client_actions():
@@ -18,6 +35,28 @@ def test_max_main_menu_exposes_all_client_actions():
         "human": "💬 Написать менеджеру",
         "contacts": "📞 Позвонить / контакты",
     }
+
+
+def test_max_manager_message_uses_direct_telegram_api_when_local_polling_is_off(monkeypatch):
+    from bot import main as telegram_bot
+
+    calls = []
+    response = SimpleNamespace(raise_for_status=lambda: None)
+    monkeypatch.setattr(telegram_bot, "effective_sales_chat", lambda: -100123)
+    monkeypatch.setattr(telegram_bot, "telegram_app", None)
+    monkeypatch.setattr(max_bot.settings, "TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setattr(
+        max_bot.httpx,
+        "AsyncClient",
+        lambda **kwargs: _FakeHttpClient(response, calls, **kwargs),
+    )
+
+    connected = asyncio.run(max_bot._notify_sales_manager(77, "Юлия", "Нужен бетон"))
+
+    assert connected is True
+    assert calls[0][0].endswith("/bottest-token/sendMessage")
+    assert calls[0][1]["chat_id"] == -100123
+    assert "max_id 77" in calls[0][1]["text"]
 
 
 def test_max_phone_is_accepted_only_from_manual_text():
