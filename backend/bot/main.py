@@ -539,6 +539,11 @@ async def choose_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 
 async def enter_volume(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if context.user_data.get("grade") not in GRADES:
+        await update.message.reply_text(
+            "Сначала выберите марку бетона:", reply_markup=grades_keyboard()
+        )
+        return VOLUME
     raw = update.message.text.replace(",", ".").strip()
     try:
         volume = float(raw)
@@ -557,6 +562,12 @@ async def enter_volume(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 
 async def enter_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if context.user_data.get("grade") not in GRADES:
+        await update.message.reply_text(
+            "Выберите марку бетона, чтобы продолжить заказ:",
+            reply_markup=grades_keyboard(),
+        )
+        return VOLUME
     address = update.message.text.strip()
     if len(address) < 3:
         await update.message.reply_text("Уточните адрес, пожалуйста (улица и дом).")
@@ -934,7 +945,10 @@ async def _polling_loop(app: Application):
     offset = None
     while True:
         try:
-            updates = await app.bot.get_updates(offset=offset, timeout=30)
+            updates = await app.bot.get_updates(
+                offset=offset, timeout=30,
+                allowed_updates=["message", "callback_query"],
+            )
             for update in updates:
                 offset = update.update_id + 1
                 await app.process_update(update)
