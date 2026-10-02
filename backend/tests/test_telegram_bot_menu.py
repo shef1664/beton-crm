@@ -11,6 +11,34 @@ from telegram.ext import ConversationHandler
 from bot import main as bot_main
 
 
+def test_volume_without_grade_stays_at_grade_selection():
+    message = SimpleNamespace(text="6", reply_text=AsyncMock())
+    context = SimpleNamespace(user_data={})
+    result = asyncio.run(bot_main.enter_volume(SimpleNamespace(message=message), context))
+    assert result == bot_main.VOLUME
+    assert context.user_data == {}
+    assert message.reply_text.await_args.kwargs["reply_markup"].inline_keyboard
+
+
+def test_address_without_grade_recovers_instead_of_crashing():
+    message = SimpleNamespace(text="Кемерово, Кедровка", reply_text=AsyncMock())
+    context = SimpleNamespace(user_data={"volume": 6})
+    result = asyncio.run(bot_main.enter_address(SimpleNamespace(message=message), context))
+    assert result == bot_main.VOLUME
+    assert "address" not in context.user_data
+    assert message.reply_text.await_args.kwargs["reply_markup"].inline_keyboard
+
+
+def test_polling_explicitly_requests_button_callbacks():
+    get_updates = AsyncMock(side_effect=asyncio.CancelledError)
+    app = SimpleNamespace(bot=SimpleNamespace(get_updates=get_updates))
+    try:
+        asyncio.run(bot_main._polling_loop(app))
+    except asyncio.CancelledError:
+        pass
+    assert get_updates.await_args.kwargs["allowed_updates"] == ["message", "callback_query"]
+
+
 def test_client_menu_contains_repeat_order_and_ai_chat():
     keyboard = bot_main.client_keyboard().inline_keyboard
     actions = {button.callback_data: button.text for row in keyboard for button in row}
